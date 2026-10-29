@@ -4,7 +4,13 @@
 **Branch:** feat/ticket-workflow-service
 **PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (ready for review)
 **Current phase/step:** run complete — every Tasks row done
-**Last commit:** 4953f06 — fix(compose): stop restarting the worker after 3 failed starts
+**Last commit:** b921ad2 — docs(readme): add the invented-data case to the AI section
+
+## Fix run — reference data
+- 1.7, 2.5, 5.13–5.15. Step 1.2 had made up the reference data and sample tickets; they are now the source records 1:1, pinned by a golden test (tests/test_data.py). Amounts are JSON numbers, read as Decimal and kept in cents.
+- Fake model rules fitted to the source tickets and KB: T-2 refunds the duplicate INV-1002, T-6 (no invoice named) proposes 5000.00 on INV-1001 and the rules escalate.
+- Gate green after every commit (ruff, ruff format, pytest 246). Compose: demo T-1…T-7 + duplicate T-1 + T-2 approval matched the expectations; `docker compose run --rm tests` 246 passed; stack removed with `docker compose down -v`. README example run refreshed.
+- Earlier artifacts in this run folder were recorded against the replaced data (see NOTIFY.md).
 
 ## Fix run — polish
 - 5.10–5.12, 1.5, 1.6, 4.10. Gate green after every commit (ruff, ruff format, pytest 239).
