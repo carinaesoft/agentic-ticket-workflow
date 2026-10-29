@@ -7,6 +7,7 @@
 **Last commit:** 2274371 — fix(rules): allow refunds only from paid invoices (plus the 24 h test commit)
 
 ## Fix run — API, logs, Compose
+- 4.6-fix: Live run showed a query right after the worker stops ends as CANCELLED ('Timeout expired', SDK timer), not DEADLINE_EXCEEDED. DEADLINE_EXCEEDED/CANCELLED now run a 2 s Temporal health check: healthy → 503 `no worker available to answer`, unreachable → 503 `workflow service unavailable`. Verified on Compose: worker stopped → no worker (both GETs); Temporal stopped → service unavailable (GET, POST, fresh API connect).
 - 3.5: LLMConfigError at worker startup logs one `worker_config_error` JSON line (level ERROR, error + hint) and exits 2 instead of a traceback; Compose restart policy unchanged. Subprocess test checks exit code, empty stderr, single line.
 - 4.9: tests service has pull_policy: build; verified: a failing probe test added to tests/ showed up in `docker compose run --rm tests` without --build, and disappeared after reverting; full container run 207 passed.
 - 4.8: docker-compose.yml interpolates every setting (defaults = Settings defaults, keys empty); verified with docker compose config: no .env → fake/0.2, .env → its values, shell HELPDESK_FAILURE_RATE=0.7 wins over .env. tests/test_compose.py guards names and defaults; the tests image copies docker-compose.yml.

@@ -16,7 +16,6 @@ from fastapi import Depends, FastAPI, HTTPException, Path, Request, Response, st
 from fastapi.responses import JSONResponse
 from temporalio.client import (
     Client,
-    WorkflowHandle,
     WorkflowQueryFailedError,
     WorkflowQueryRejectedError,
 )
@@ -143,7 +142,7 @@ def _add_routes(app: FastAPI) -> None:
         responses={404: {"model": ErrorDetail}, **_UNAVAILABLE},
     )
     async def get_ticket(ticket_id: TicketId, client: ClientDep) -> WorkflowStatus:
-        return await _query_status(client.get_workflow_handle(workflow_id_for(ticket_id)))
+        return await _query_status(client, workflow_id_for(ticket_id))
 
     @app.post(
         "/tickets/{ticket_id}/approval",
@@ -161,7 +160,7 @@ def _add_routes(app: FastAPI) -> None:
         workflow_id = workflow_id_for(ticket_id)
         extra = ticket_extra(ticket_id, workflow_id)
         handle = client.get_workflow_handle(workflow_id)
-        current = await _query_status(handle)
+        current = await _query_status(client, workflow_id)
         if current.step != WorkflowStep.AWAITING_APPROVAL:
             return _not_awaiting(current, extra)
         # The workflow ignores an approval that arrives after it stopped waiting (see the
@@ -173,7 +172,7 @@ def _add_routes(app: FastAPI) -> None:
                 raise _rpc_http_error(err) from err
             # The workflow closed between the query and the signal (timer fired, or another
             # approval completed it): the ticket exists but no longer waits.
-            return _not_awaiting(await _query_status(handle), extra)
+            return _not_awaiting(await _query_status(client, workflow_id), extra)
         log.info(
             "approval_sent",
             extra={**extra, "approved": approval.approved, "reviewer": approval.reviewer},
@@ -189,23 +188,38 @@ def _not_awaiting(current: WorkflowStatus, extra: dict) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=body.model_dump())
 
 
+HEALTH_TIMEOUT = timedelta(seconds=2)
 # A query on a workflow whose task queue has no worker fails with FAILED_PRECONDITION
-# ("no poller seen") or, while the server still waits for one, runs into the RPC deadline.
-_NO_WORKER_STATUSES = (RPCStatusCode.FAILED_PRECONDITION, RPCStatusCode.DEADLINE_EXCEEDED)
+# ("no poller seen"). While the server still waits for a recently seen worker, the query
+# outlives QUERY_TIMEOUT instead: DEADLINE_EXCEEDED from the server or CANCELLED from the
+# SDK's own timer. A query retrying against an unreachable server ends the same way, so for
+# those two a health check decides which one it was.
+_TIMED_OUT_STATUSES = (RPCStatusCode.DEADLINE_EXCEEDED, RPCStatusCode.CANCELLED)
 
 
-async def _query_status(handle: WorkflowHandle) -> WorkflowStatus:
+async def _query_status(client: Client, workflow_id: str) -> WorkflowStatus:
+    handle = client.get_workflow_handle(workflow_id)
     try:
         return await handle.query(TicketWorkflow.status, rpc_timeout=QUERY_TIMEOUT)
     except RPCError as err:
-        if err.status in _NO_WORKER_STATUSES:
-            log.error("workflow_query_no_worker", extra={"workflow_id": handle.id})
+        no_worker = err.status == RPCStatusCode.FAILED_PRECONDITION or (
+            err.status in _TIMED_OUT_STATUSES and await _temporal_healthy(client)
+        )
+        if no_worker:
+            log.error("workflow_query_no_worker", extra={"workflow_id": workflow_id})
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_WORKER) from err
         raise _rpc_http_error(err) from err
     except (WorkflowQueryFailedError, WorkflowQueryRejectedError) as err:
         # The formatter derives ticket_id from the ``ticket-…`` workflow ID.
-        log.error("workflow_query_failed", extra={"workflow_id": handle.id, "error": str(err)})
+        log.error("workflow_query_failed", extra={"workflow_id": workflow_id, "error": str(err)})
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, QUERY_FAILED) from err
+
+
+async def _temporal_healthy(client: Client) -> bool:
+    try:
+        return await client.service_client.check_health(timeout=HEALTH_TIMEOUT)
+    except RPCError:
+        return False
 
 
 def _rpc_http_error(err: RPCError) -> HTTPException:

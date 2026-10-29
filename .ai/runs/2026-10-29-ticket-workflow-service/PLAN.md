@@ -46,7 +46,8 @@
 | 4 | 4.7 | API logs one http_request line per ticket request; uvicorn access log off | inline | done | e0a445d |
 | 4 | 4.8 | Compose passes settings from the shell and .env via ${NAME:-default} | inline | done | e3969b7 |
 | 4 | 4.9 | Tests container always rebuilds (pull_policy: build) | inline | done | 849fb85 |
-| 3 | 3.5 | Worker config error as one JSON error line, exit code 2 | inline | done | pending |
+| 3 | 3.5 | Worker config error as one JSON error line, exit code 2 | inline | done | 2035f6a |
+| 4 | 4.6-fix | Query timeout tells no worker from Temporal down via a health check | inline | done | pending |
 
 ## Goal
 

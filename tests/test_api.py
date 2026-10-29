@@ -219,8 +219,18 @@ async def test_invalid_approval_and_path_are_422(api) -> None:
 class UnreachableClient:
     """A Temporal client whose every call fails as when the server is down."""
 
-    def __init__(self, error: Exception) -> None:
+    def __init__(self, error: Exception, *, healthy: bool = True) -> None:
         self.error = error
+        self.service_client = self.HealthService(healthy)
+
+    class HealthService:
+        def __init__(self, healthy: bool) -> None:
+            self.healthy = healthy
+
+        async def check_health(self, **kwargs) -> bool:
+            if not self.healthy:
+                raise RPCError("dns error", RPCStatusCode.UNAVAILABLE, b"")
+            return True
 
     async def start_workflow(self, *args, **kwargs):
         raise self.error
@@ -238,22 +248,27 @@ class UnreachableClient:
 
 
 @pytest.mark.parametrize(
-    ("error", "detail"),
+    ("status", "healthy", "detail"),
     [
-        (RPCError("unavailable", RPCStatusCode.UNAVAILABLE, b""), "workflow service unavailable"),
-        (
-            RPCError("no poller seen", RPCStatusCode.FAILED_PRECONDITION, b""),
-            "no worker available to answer",
-        ),
-        (
-            RPCError("deadline", RPCStatusCode.DEADLINE_EXCEEDED, b""),
-            "no worker available to answer",
-        ),
+        (RPCStatusCode.UNAVAILABLE, False, "workflow service unavailable"),
+        (RPCStatusCode.FAILED_PRECONDITION, True, "no worker available to answer"),
+        (RPCStatusCode.DEADLINE_EXCEEDED, True, "no worker available to answer"),
+        (RPCStatusCode.CANCELLED, True, "no worker available to answer"),
+        (RPCStatusCode.DEADLINE_EXCEEDED, False, "workflow service unavailable"),
+        (RPCStatusCode.CANCELLED, False, "workflow service unavailable"),
     ],
-    ids=["rpc-unavailable", "no-worker-precondition", "no-worker-deadline"],
+    ids=[
+        "rpc-unavailable",
+        "no-worker-precondition",
+        "no-worker-deadline",
+        "no-worker-timeout",
+        "deadline-server-down",
+        "timeout-server-down",
+    ],
 )
-async def test_temporal_failures_on_query_are_503(error, detail) -> None:
-    app = create_app(client=UnreachableClient(error), settings=Settings())
+async def test_temporal_failures_on_query_are_503(status, healthy, detail) -> None:
+    error = RPCError("query failed", status, b"")
+    app = create_app(client=UnreachableClient(error, healthy=healthy), settings=Settings())
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as http:
