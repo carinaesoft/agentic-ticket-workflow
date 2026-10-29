@@ -16,11 +16,12 @@ from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from app.activities import ActionRequest, DecideOutput
 from app.data.store import DataStore
 from app.domain.models import (
+    ActionRequest,
     ActionResult,
     ApprovalInput,
+    DecideOutput,
     DecisionContext,
     EscalateAction,
     ProposedDecision,

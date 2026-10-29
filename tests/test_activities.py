@@ -7,12 +7,12 @@ import pytest
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import ActivityEnvironment
 
-from app.activities import ActionRequest, TicketActivities, idempotency_key
+from app.activities import TicketActivities, idempotency_key
 from app.adapters.fake_llm import FakeChatModel
 from app.adapters.helpdesk import FakeHelpdesk
 from app.adapters.llm import LLMConfigError
 from app.data.store import DataStore
-from app.domain.models import CloseAction, RefundAction, Ticket
+from app.domain.models import ActionRequest, CloseAction, RefundAction, Ticket
 from tests.scripted_model import ScriptedModel, answer
 
 STORE = DataStore()

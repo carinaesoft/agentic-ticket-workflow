@@ -145,6 +145,21 @@ class DecisionContext(BaseModel):
 # --- Workflow I/O ---------------------------------------------------------------------
 
 
+class DecideOutput(BaseModel):
+    """Result of the decide activity: the proposal plus the context the rules need."""
+
+    decision: ProposedDecision
+    context: DecisionContext
+
+
+class ActionRequest(BaseModel):
+    """Input of the Helpdesk activities."""
+
+    workflow_id: str
+    ticket_id: str
+    action: Action
+
+
 class ApprovalInput(BaseModel):
     approved: bool
     reviewer: str = Field(min_length=1, max_length=100)

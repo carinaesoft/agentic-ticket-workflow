@@ -10,7 +10,6 @@ anything else propagates and is retried by the workflow's retry policy.
 from __future__ import annotations
 
 import openai
-from pydantic import BaseModel
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
@@ -21,9 +20,10 @@ from app.agent.tools import ToolExecutor
 from app.data.store import DataStore
 from app.domain.models import (
     Action,
+    ActionRequest,
     ActionResult,
+    DecideOutput,
     DecisionContext,
-    ProposedDecision,
     Ticket,
 )
 
@@ -31,17 +31,6 @@ from app.domain.models import (
 # model, conflict, unprocessable input): a retry would fail the same way. Everything else
 # (408, 429, 5xx, timeouts, connection errors) propagates and is retried.
 NON_RETRYABLE_LLM_STATUSES = frozenset({400, 401, 403, 404, 409, 422})
-
-
-class DecideOutput(BaseModel):
-    decision: ProposedDecision
-    context: DecisionContext
-
-
-class ActionRequest(BaseModel):
-    workflow_id: str
-    ticket_id: str
-    action: Action
 
 
 def idempotency_key(workflow_id: str, action: Action) -> str:

@@ -17,11 +17,10 @@ from temporalio.client import WorkflowQueryFailedError, WorkflowQueryRejectedErr
 from temporalio.service import RPCError, RPCStatusCode
 from temporalio.worker import Worker
 
-from app.activities import ActionRequest, DecideOutput
 from app.api.main import create_app
 from app.api.request_log import ticket_id_from
 from app.config import Settings
-from app.domain.models import ActionResult, Ticket
+from app.domain.models import ActionRequest, ActionResult, DecideOutput, Ticket
 from app.logging import JsonFormatter
 from app.workflows.ticket import TicketWorkflow
 from tests.test_workflow import REFUND, REPLY, decide_output

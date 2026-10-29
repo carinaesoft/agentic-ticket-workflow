@@ -17,11 +17,12 @@ from temporalio.exceptions import ActivityError, ApplicationError, RetryState
 from temporalio.exceptions import TimeoutError as ActivityTimeoutError
 
 with workflow.unsafe.imports_passed_through():
-    from app.activities import ActionRequest, DecideOutput
     from app.domain.models import (
+        ActionRequest,
         ActionResult,
         ApprovalInput,
         Category,
+        DecideOutput,
         Decision,
         EscalateAction,
         Priority,
