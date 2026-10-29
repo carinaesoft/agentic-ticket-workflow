@@ -41,3 +41,6 @@
 - Delegation: code review by a fresh reviewer subagent (tier capable → opus), read-only, following om-code-review; re-review by the same subagent.
 - Review: approve, 4 minors (sub-cent refund amounts, case-sensitive envelope escaping, 404 instead of 409 on approval race, query failures as 500) → fixed in 1.3/2.2/4.1-review-fix. Re-review: approve, 1 new minor (log line without IDs) → fixed in 4.4-review-fix. Gate: 188 passed.
 - Deferred nits and the overdue-invoice product question recorded in checkpoint-5-checks.md.
+
+## 2026-10-29T16:00:29Z — run finished
+- PR: https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 — ready for review, Status: complete, labels merge-queue/feature/needs-qa/priority-medium/risk-high. CI green on 6227bbc. Not merged (left to a human after QA).
