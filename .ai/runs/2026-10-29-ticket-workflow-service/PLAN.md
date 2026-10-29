@@ -35,6 +35,9 @@
 | 5 | 5.2 | CI | dispatch:cheap | done | efc7135 |
 | 4 | 4.5 | Ticket IDs on access-log lines | inline | done | 07ef3cb |
 | 5 | 5.3 | End-to-end verification | inline | done | 3e06eb5 |
+| 1 | 1.3-review-fix | Refund amounts limited to whole cents | inline | done | pending |
+| 2 | 2.2-review-fix | Case-insensitive envelope escaping | inline | todo | — |
+| 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | todo | — |
 
 ## Goal
 
@@ -96,6 +99,12 @@ Step titles match the spec's Implementation Plan; each Step is one commit and le
 - **5.1 README** — all sections the spec requires; the section on AI coding assistants stays a skeleton with TODO markers; AGENTS.md routing rows updated; README heading test.
 - **5.2 CI** — `.github/workflows/ci.yml` running the gate on every push and PR.
 - **5.3 End-to-end verification** — real `docker compose up -d --build`, demo run, per-ticket check against the expectations table, JSON log inspection, offline `docker compose run --rm tests`; results recorded in the README "Example run" subsection.
+
+### Review fixes (from `om-auto-review-pr 3 --autofix`)
+
+- **1.3-review-fix Refund amounts limited to whole cents** — the rules accepted amounts such as `0.0000001` or `1E+1`; amounts with more than two decimal places now escalate, valid ones are normalised to cents, and amounts too large to express in cents escalate.
+- **2.2-review-fix Case-insensitive envelope escaping** — `</UNTRUSTED_TICKET>` (or with spaces) reached the model unescaped although the README says the ticket cannot close the envelope.
+- **4.1-review-fix Approval race and query failures map to 409/503** — a workflow that closes between the status query and the approval signal answered 404; it now answers 409 with the current step. Query failures (`WorkflowQueryFailedError`/`WorkflowQueryRejectedError`) answered 500; they now answer 503 with a detail.
 
 ## Deviations from the spec
 

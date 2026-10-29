@@ -31,6 +31,7 @@ from app.domain.models import (
 MAX_MESSAGE_CHARS = 2000
 MAX_REASON_CHARS = 500
 REJECTED_PREFIX = "decision rejected by rules: "
+CENT = Decimal("0.01")
 
 
 class ValidationOutcome(BaseModel):
@@ -116,6 +117,15 @@ def _check_refund(
     if amount is None:
         errors.append("refund requires amount_eur as a decimal number")
         return None
+    try:
+        cents = amount.quantize(CENT)
+    except InvalidOperation:  # too many digits to express in cents
+        errors.append("refund amount is out of range")
+        return None
+    if cents != amount:
+        errors.append(f"refund amount {amount} has more than 2 decimal places")
+        return None
+    amount = cents
 
     if amount <= 0:
         errors.append(f"refund amount {amount} must be greater than zero")

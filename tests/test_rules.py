@@ -148,6 +148,26 @@ def test_refund_with_zero_or_negative_amount_escalates(amount) -> None:
     assert_escalated(out, "must be greater than zero")
 
 
+@pytest.mark.parametrize("amount", ["0.0000001", 1e-300, "12.345", "0.001"])
+def test_refund_with_sub_cent_precision_escalates(amount) -> None:
+    out = check({"kind": "refund", "invoice_id": "INV-1002", "amount_eur": amount})
+    assert_escalated(out, "has more than 2 decimal places")
+
+
+def test_refund_amount_too_large_for_cents_escalates() -> None:
+    out = check({"kind": "refund", "invoice_id": "INV-1002", "amount_eur": "1e999999999"})
+    assert_escalated(out, "refund amount is out of range")
+
+
+@pytest.mark.parametrize(
+    ("amount", "expected"), [("1E+1", "10.00"), (" 12 ", "12.00"), (49, "49.00")]
+)
+def test_refund_amount_is_normalised_to_cents(amount, expected) -> None:
+    out = check({"kind": "refund", "invoice_id": "INV-1002", "amount_eur": amount})
+    assert out.errors == []
+    assert str(out.decision.action.amount_eur) == expected
+
+
 def test_reply_with_unknown_article_escalates() -> None:
     out = check({"kind": "reply", "message": "See this.", "article_ids": ["KB-1", "KB-99"]})
     assert_escalated(out, "reply cites unknown article 'KB-99'")
