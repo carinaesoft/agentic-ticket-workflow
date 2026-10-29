@@ -22,7 +22,7 @@ Each requirement is covered by at least one step and one test in the Implementat
 
 - **FR-1** Each ticket is processed by exactly one durable Temporal workflow with the steps: *decide → validate → (await approval, refunds only) → act*.
 - **FR-2** *Decide*: an activity asks the LLM for a decision consisting of one `category`, one `priority` and exactly one `action`. The model gathers context only through tool calls.
-- **FR-3** *Validate*: plain code checks the decision. Category, priority and action kind must be from the allowed sets; a refund must reference an invoice that belongs to the ticket's customer and must not exceed that invoice's amount; reply articles must exist. Any violation turns the decision into an `escalate` action whose reason names the violated rule.
+- **FR-3** *Validate*: plain code checks the decision. Category, priority and action kind must be from the allowed sets; a refund must reference an invoice that belongs to the ticket's customer, has the status `paid`, and must not exceed that invoice's amount; reply articles must exist. Any violation turns the decision into an `escalate` action whose reason names the violated rule.
 - **FR-4** *Await approval*: a refund decision waits for a human approve/reject sent through the API. With no answer within 24 hours the ticket is escalated instead.
 - **FR-5** *Act*: an activity executes the final action (`reply`, `refund`, `escalate`, `close`) through the fake Helpdesk API.
 - **FR-6** The workflow exposes its current step, the decision (original and effective) and the final result at any time, including after it has finished.
@@ -285,7 +285,7 @@ A deterministic keyword-rule stand-in that **goes through the same loop**: on it
 1. FR-3 rules are pure Python run in the workflow on every decision; no prompt text can change them.
 2. Every refund requires a human signal, regardless of ticket content or model output; there is no code path from `decide` to a refund that skips `awaiting_approval`.
 3. `customer_id` always comes from the ticket record, never from the model; tools are scoped to that customer.
-4. Refund amount ≤ amount of an invoice owned by that customer; invoice must exist.
+4. Refund amount ≤ amount of a `paid` invoice owned by that customer; invoice must exist.
 5. The ticket subject/body is wrapped in a clearly delimited `<untrusted_ticket>` block, and the system prompt states that its contents are data, never instructions.
 6. Model output is parsed into a strict schema; anything else is an unreadable answer, not a partial decision.
 7. Tests feed T-6 and an "adversarial fake" (a scripted model returning a refund for another customer's invoice, an unknown action, and an over-limit amount) through the real loop + workflow and assert escalation.
@@ -295,7 +295,7 @@ A deterministic keyword-rule stand-in that **goes through the same loop**: on it
 `validate_decision(proposed: ProposedDecision, ticket, ctx) -> ValidationOutcome{decision: Decision, errors: list[str]}` converts the untyped proposal into a typed `Decision`; when `errors` is non-empty the returned decision is `escalate` with `reason = "decision rejected by rules: " + "; ".join(errors)`, keeping the agent's category/priority when valid (else `other`/`normal`). Checks:
 
 - category, priority, action kind in the allowed sets; the action's fields match its kind (e.g. a refund has `invoice_id` and a positive decimal `amount_eur`);
-- `refund`: invoice exists in `ctx.invoices`, belongs to `ticket.customer_id`, `0 < amount ≤ invoice.amount_eur`;
+- `refund`: invoice exists in `ctx.invoices`, belongs to `ticket.customer_id`, has `status == "paid"` (else `invoice <id> is not paid (status: <status>)`), `0 < amount ≤ invoice.amount_eur`;
 - `reply`: non-empty message ≤ 2000 chars, every `article_id` exists in the KB;
 - `escalate`/`close`: non-empty reason ≤ 500 chars.
 

@@ -327,9 +327,10 @@ approval gate do not depend on the model behaving.
 3. **Tools are scoped to the ticket's customer.** `ToolExecutor` is created with the
    `customer_id` from the ticket record. No tool takes a customer argument, so the model
    cannot read another customer's invoices.
-4. **Refund checks.** The invoice must exist, belong to the ticket's customer, and the amount
-   must be above zero and not more than the invoice amount. Replies must cite existing KB
-   articles; categories, priorities and action kinds must be in the allowed sets.
+4. **Refund checks.** The invoice must exist, belong to the ticket's customer and have the
+   status `paid` (otherwise, for example, `invoice INV-4001 is not paid (status: overdue)`),
+   and the amount must be above zero and not more than the invoice amount. Replies must cite
+   existing KB articles; categories, priorities and action kinds must be in the allowed sets.
 5. **Untrusted envelope.** The subject and body are placed inside an `<untrusted_ticket>`
    block and the system prompt says the content is data, not instructions. The ticket cannot
    close the block: any `<untrusted_ticket` or `</untrusted_ticket` in the text, in any letter

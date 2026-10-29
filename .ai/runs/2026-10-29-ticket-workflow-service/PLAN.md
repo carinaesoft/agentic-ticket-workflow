@@ -39,7 +39,8 @@
 | 2 | 2.2-review-fix | Case-insensitive envelope escaping | inline | done | d9e8d6e |
 | 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | done | aaa22f0 |
 | 4 | 4.4-review-fix | Ticket IDs on the query-failure log line | inline | done | 20febe6 |
-| 3 | 3.3-qa-fix | Reconcile a lost response after the last execute_action attempt | inline | done | pending |
+| 3 | 3.3-qa-fix | Reconcile a lost response after the last execute_action attempt | inline | done | f3450b7 |
+| 1 | 1.3-qa-fix | Refunds only from paid invoices | inline | done | pending |
 
 ## Goal
 

@@ -32,6 +32,7 @@ MAX_MESSAGE_CHARS = 2000
 MAX_REASON_CHARS = 500
 REJECTED_PREFIX = "decision rejected by rules: "
 CENT = Decimal("0.01")
+PAID = "paid"  # only a paid invoice can be refunded
 
 
 class ValidationOutcome(BaseModel):
@@ -134,6 +135,8 @@ def _check_refund(
         errors.append(f"invoice {invoice_id} not found for customer {ticket.customer_id}")
     elif invoice.customer_id != ticket.customer_id:
         errors.append(f"invoice {invoice_id} does not belong to customer {ticket.customer_id}")
+    elif invoice.status != PAID:
+        errors.append(f"invoice {invoice_id} is not paid (status: {invoice.status})")
     elif amount > invoice.amount_eur:
         errors.append(
             f"refund amount {amount} exceeds invoice {invoice_id} amount {invoice.amount_eur}"

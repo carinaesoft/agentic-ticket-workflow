@@ -122,6 +122,23 @@ def test_refund_over_invoice_amount_escalates() -> None:
     assert_escalated(out, "exceeds invoice INV-1002 amount 49.00")
 
 
+def test_refund_on_paid_invoice_passes() -> None:
+    out = check({"kind": "refund", "invoice_id": "INV-1002", "amount_eur": "49.00"})
+    assert out.errors == []
+    assert out.decision.action == RefundAction(invoice_id="INV-1002", amount_eur=Decimal("49.00"))
+
+
+def test_refund_on_unpaid_invoice_escalates() -> None:
+    c104 = Ticket(ticket_id="T-4", customer_id="C-104", subject="Refund", body="Refund please")
+    out = validate_decision(
+        proposal({"kind": "refund", "invoice_id": "INV-4001", "amount_eur": "49.00"}),
+        c104,
+        ctx_for("C-104"),
+    )
+    assert_escalated(out, "invoice INV-4001 is not paid (status: overdue)")
+    assert out.errors == ["invoice INV-4001 is not paid (status: overdue)"]
+
+
 def test_refund_on_another_customers_invoice_escalates() -> None:
     # The scoped snapshot does not contain other customers' invoices at all.
     out = check({"kind": "refund", "invoice_id": "INV-3001", "amount_eur": "10"})
