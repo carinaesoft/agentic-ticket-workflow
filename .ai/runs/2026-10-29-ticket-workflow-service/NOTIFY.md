@@ -47,3 +47,7 @@
 
 ## 2026-10-29T18:10:00Z — README accuracy run
 - Steps 5.5–5.9 done; every README command block verified in a fresh clone; gate green (pytest 230). The README AI section skeleton test now requires the written section.
+
+## 2026-10-29T18:01:13Z — reference data run
+- Step 1.2 had made up the reference data and sample tickets (other customers, invoices, KB articles and ticket texts). Replaced 1:1 with the source records (1.7), fake model rules fitted to them (2.5), tests, spec table and README examples updated (5.13).
+- Note: the earlier checkpoint and final-gate artifacts in this run folder (checks files, logs, test counts, example outputs) were recorded against the replaced data. They are kept as history; they do not describe the current data.

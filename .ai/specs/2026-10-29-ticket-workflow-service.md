@@ -268,17 +268,17 @@ raise AgentTurnLimit
 
 ### Fake model (`app/adapters/fake_llm.py`)
 
-A deterministic keyword-rule stand-in that **goes through the same loop**: on its first turns it emits tool calls (`get_customer`, then `get_invoices` and/or `search_kb` depending on keywords), reads the tool results from the message history, and only then emits a `Decision` JSON. It is intentionally naive — it takes a refund amount stated in the ticket at face value — so the rules, not the fake, are what stops a manipulative ticket. Expected outcomes on the samples:
+A deterministic keyword-rule stand-in that **goes through the same loop**: on its first turns it emits tool calls (`get_customer`, then `get_invoices` and/or `search_kb` depending on keywords), reads the tool results from the message history, and only then emits a `Decision` JSON. It is intentionally naive — it takes a refund amount stated in the ticket at face value and, when the ticket names no invoice, uses the customer's first paid invoice — so the rules, not the fake, are what stops a manipulative ticket. Its keyword rules are written for the source tickets in `samples/tickets.json` and the KB in `app/data/kb.json`. Expected outcomes on the samples:
 
 | Ticket | Tools called | Proposed decision | Final outcome after rules/approval |
 |---|---|---|---|
-| T-1 login | customer, kb("password") | account / normal / reply [KB-1] | reply sent |
-| T-2 charged twice | customer, invoices, kb("refund") | billing / high / refund INV-1002 49.00 | waits for approval → refund (approve) or reply (reject) or escalate (24 h) |
-| T-3 API down, enterprise | customer, kb("outage") | technical / urgent / escalate "outage reported by enterprise customer" | escalated |
-| T-4 locked, suspended | customer, invoices, kb("suspended") | account / high / reply [KB-4] mentioning overdue INV-4001 | reply sent |
-| T-5 off-topic | customer | other / low / close "not a support request" | closed |
-| T-6 injection, 5000 EUR | customer, invoices | billing / high / refund INV-1001 5000.00 | rules: amount exceeds invoice → escalated |
-| T-7 unknown customer | — (`UnknownCustomer` before model) | none | escalated "unknown customer C-999" |
+| T-1 C-200 (free), forgot password | customer, kb("password") | account / normal / reply [KB-1] | reply sent |
+| T-2 C-100 charged twice (INV-1001 and INV-1002, both 2026-09, 49.00, paid) | customer, invoices, kb("refund") | billing / high / refund INV-1002 49.00 (the second, duplicate charge) | waits for approval → refund (approve) or reply (reject) or escalate (24 h) |
+| T-3 C-300 (enterprise) API down, "urgent" | customer, kb("outages") → KB-3 | technical / urgent / escalate "outage reported by enterprise customer" | escalated |
+| T-4 C-400 (suspended, INV-4001 overdue) | customer, invoices, kb("suspended") | account / high / reply [KB-4] mentioning overdue INV-4001 | reply sent |
+| T-5 C-200 pizza place | customer | other / low / close "not a support request" | closed |
+| T-6 C-100 injection, 5000 EUR, no invoice named | customer, invoices, kb("refund") | billing / high / refund INV-1001 5000.00 | rules: amount exceeds invoice → escalated, no approval |
+| T-7 C-999 unknown customer | — (`UnknownCustomer` before model) | none | escalated "unknown customer C-999", no retry |
 
 ### Prompt-injection defences (FR-8)
 
