@@ -181,23 +181,26 @@ POST T-2/approval -> 202 {"ticket_id":"T-2","workflow_id":"ticket-T-2","approved
 | T-7 | escalate "unknown customer C-999", no model call | same; `proposed_decision` is `null` |
 | T-1 again | `200`, `duplicate: true`, no second run | same; one `decide_started` for T-1 in the logs |
 
-The injected Helpdesk failures were visible: T-1, T-2, T-4 and T-7 each hit a transient
-error and succeeded on the retry; every ticket shows exactly one `action_executed`.
-`temporal workflow list` showed the seven `ticket-T-*` workflows as `Completed`, and the web
-UI answered on port 8233.
+In this run the injected Helpdesk failures hit only T-6: one transient error, then success on
+the retry. The failures are random (no `HELPDESK_SEED`), so another run hits other tickets.
+Every ticket shows exactly one `action_executed`. `temporal workflow list` showed the seven
+`ticket-T-*` workflows as `Completed`, and the web UI answered on port 8233.
 
-Logs for one ticket, `docker compose logs worker api | grep T-2`: 21 JSON lines, every one
-with `"ticket_id": "T-2"` and `"workflow_id": "ticket-T-2"`. An excerpt (worker and API):
+Logs for one ticket, `docker compose logs --no-log-prefix api worker | grep T-2`: 21 JSON
+lines, every one with `"ticket_id": "T-2"` and `"workflow_id": "ticket-T-2"`, including the
+API's `http_request` lines. An excerpt:
 
 ```
-{"ts": "2026-10-29T15:49:07.197+00:00", "level": "INFO", "logger": "app.api", "event": "approval_sent", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true, "reviewer": "demo-reviewer"}
-{"ts": "2026-10-29T15:49:07.200+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "approval_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true}
-{"ts": "2026-10-29T15:49:07.204+00:00", "level": "WARNING", "logger": "temporalio.activity", "event": "helpdesk_transient_error", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 1, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "error": "helpdesk temporarily unavailable"}
-{"ts": "2026-10-29T15:49:08.212+00:00", "level": "INFO", "logger": "temporalio.activity", "event": "action_executed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 2, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "helpdesk_reference": "HD-00007"}
+{"ts": "2026-10-29T17:28:16.777+00:00", "level": "INFO", "logger": "app.api", "event": "ticket_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "subject_length": 24, "body_length": 94}
+{"ts": "2026-10-29T17:28:17.079+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "step_changed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "step": "awaiting_approval"}
+{"ts": "2026-10-29T17:28:18.092+00:00", "level": "INFO", "logger": "app.api", "event": "approval_sent", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true, "reviewer": "demo-reviewer"}
+{"ts": "2026-10-29T17:28:18.093+00:00", "level": "INFO", "logger": "app.api", "event": "http_request", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "method": "POST", "path": "/tickets/T-2/approval", "status": 202, "duration_ms": 9.3}
+{"ts": "2026-10-29T17:28:18.096+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "approval_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true}
+{"ts": "2026-10-29T17:28:18.101+00:00", "level": "INFO", "logger": "temporalio.activity", "event": "action_executed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 1, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "helpdesk_reference": "HD-00007"}
 ```
 
-`docker compose run --rm tests` (service with `network_mode: none`): `173 passed in 3.52s`.
-Inside that container a connection attempt to `pypi.org` fails with
+`docker compose run --rm tests` (service with `network_mode: none`) passed. Inside that
+container a connection attempt to `pypi.org` fails with
 `Temporary failure in name resolution`, so the suite ran without network access.
 
 ## Architecture
