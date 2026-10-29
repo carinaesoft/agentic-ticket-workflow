@@ -10,6 +10,7 @@ import httpx
 import pytest
 import pytest_asyncio
 from temporalio import activity
+from temporalio.client import WorkflowQueryFailedError, WorkflowQueryRejectedError
 from temporalio.service import RPCError, RPCStatusCode
 from temporalio.worker import Worker
 
@@ -266,3 +267,52 @@ def test_production_app_configures_json_logging_at_creation() -> None:
         assert logging.getLogger("uvicorn.error").propagate
     finally:
         root.handlers, root.level = previous_handlers, previous_level
+
+
+class RacingClient:
+    """The status query says "awaiting_approval", then the workflow closes before the signal."""
+
+    def __init__(self) -> None:
+        self.steps = ["awaiting_approval", "completed"]
+
+    def get_workflow_handle(self, workflow_id: str):
+        client = self
+
+        class Handle:
+            async def query(self, *args, **kwargs):
+                from app.domain.models import WorkflowStatus
+
+                step = client.steps.pop(0)
+                return WorkflowStatus(ticket_id="T-1", workflow_id=workflow_id, step=step)
+
+            async def signal(self, *args, **kwargs):
+                raise RPCError("workflow execution already completed", RPCStatusCode.NOT_FOUND, b"")
+
+        return Handle()
+
+
+async def test_approval_racing_with_workflow_completion_is_409() -> None:
+    app = create_app(client=RacingClient(), settings=Settings())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as http:
+        response = await http.post(
+            "/tickets/T-1/approval", json={"approved": True, "reviewer": "x"}
+        )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "ticket is not awaiting approval", "step": "completed"}
+
+
+@pytest.mark.parametrize(
+    "error",
+    [WorkflowQueryFailedError("workflow task failing"), WorkflowQueryRejectedError(None)],
+    ids=["failed", "rejected"],
+)
+async def test_query_failures_are_503(error) -> None:
+    app = create_app(client=UnreachableClient(error), settings=Settings())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as http:
+        response = await http.get("/tickets/T-1")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "ticket state cannot be read right now"}

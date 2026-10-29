@@ -36,8 +36,8 @@
 | 4 | 4.5 | Ticket IDs on access-log lines | inline | done | 07ef3cb |
 | 5 | 5.3 | End-to-end verification | inline | done | 3e06eb5 |
 | 1 | 1.3-review-fix | Refund amounts limited to whole cents | inline | done | 307c1ca |
-| 2 | 2.2-review-fix | Case-insensitive envelope escaping | inline | done | pending |
-| 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | todo | — |
+| 2 | 2.2-review-fix | Case-insensitive envelope escaping | inline | done | d9e8d6e |
+| 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | done | pending |
 
 ## Goal
 

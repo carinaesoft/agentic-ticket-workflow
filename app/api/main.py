@@ -14,7 +14,12 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Request, Response, status
 from fastapi.responses import JSONResponse
-from temporalio.client import Client, WorkflowHandle
+from temporalio.client import (
+    Client,
+    WorkflowHandle,
+    WorkflowQueryFailedError,
+    WorkflowQueryRejectedError,
+)
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.exceptions import WorkflowAlreadyStartedError
@@ -37,6 +42,7 @@ log = logging.getLogger("app.api")
 QUERY_TIMEOUT = timedelta(seconds=10)
 SERVICE_UNAVAILABLE = "workflow service unavailable"
 NO_WORKER = "no worker available to answer"
+QUERY_FAILED = "ticket state cannot be read right now"
 
 TicketId = Annotated[str, Path(pattern=TICKET_ID_PATTERN)]
 
@@ -144,12 +150,17 @@ def _add_routes(app: FastAPI) -> None:
         handle = client.get_workflow_handle(workflow_id)
         current = await _query_status(handle)
         if current.step != WorkflowStep.AWAITING_APPROVAL:
-            log.info("approval_rejected_not_waiting", extra={**extra, "step": current.step.value})
-            body = NotAwaitingApproval(detail="ticket is not awaiting approval", step=current.step)
-            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=body.model_dump())
+            return _not_awaiting(current, extra)
         # The workflow ignores an approval that arrives after it stopped waiting (see the
         # signal handler), so the query-then-signal race cannot trigger a late refund.
-        await _temporal(handle.signal(TicketWorkflow.submit_approval, approval))
+        try:
+            await handle.signal(TicketWorkflow.submit_approval, approval)
+        except RPCError as err:
+            if err.status != RPCStatusCode.NOT_FOUND:
+                raise _rpc_http_error(err) from err
+            # The workflow closed between the query and the signal (timer fired, or another
+            # approval completed it): the ticket exists but no longer waits.
+            return _not_awaiting(await _query_status(handle), extra)
         log.info(
             "approval_sent",
             extra={**extra, "approved": approval.approved, "reviewer": approval.reviewer},
@@ -157,6 +168,12 @@ def _add_routes(app: FastAPI) -> None:
         return ApprovalAccepted(
             ticket_id=ticket_id, workflow_id=workflow_id, approved=approval.approved
         )
+
+
+def _not_awaiting(current: WorkflowStatus, extra: dict) -> JSONResponse:
+    log.info("approval_rejected_not_waiting", extra={**extra, "step": current.step.value})
+    body = NotAwaitingApproval(detail="ticket is not awaiting approval", step=current.step)
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=body.model_dump())
 
 
 async def _query_status(handle: WorkflowHandle) -> WorkflowStatus:
@@ -168,16 +185,23 @@ async def _temporal[T](call: Awaitable[T]) -> T:
     try:
         return await call
     except RPCError as err:
-        if err.status == RPCStatusCode.NOT_FOUND:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "ticket not found") from err
-        if err.status == RPCStatusCode.DEADLINE_EXCEEDED:
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_WORKER) from err
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE) from err
+        raise _rpc_http_error(err) from err
+    except (WorkflowQueryFailedError, WorkflowQueryRejectedError) as err:
+        log.error("workflow_query_failed", extra={"error": str(err)})
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, QUERY_FAILED) from err
     except RuntimeError as err:
         # A lazy client that cannot reach the server raises "Failed client connect".
         if "client connect" not in str(err):
             raise
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE) from err
+
+
+def _rpc_http_error(err: RPCError) -> HTTPException:
+    if err.status == RPCStatusCode.NOT_FOUND:
+        return HTTPException(status.HTTP_404_NOT_FOUND, "ticket not found")
+    if err.status == RPCStatusCode.DEADLINE_EXCEEDED:
+        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_WORKER)
+    return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE)
 
 
 app = create_app()
