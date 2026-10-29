@@ -15,7 +15,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 # Attributes every LogRecord has; anything else on a record is an ``extra`` field.
-_STANDARD_ATTRS = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime", "taskName"}
+# ``color_message`` is uvicorn's ANSI-coloured duplicate of the message.
+_STANDARD_ATTRS = set(logging.makeLogRecord({}).__dict__) | {
+    "message",
+    "asctime",
+    "taskName",
+    "color_message",
+}
 _TEMPORAL_EXTRAS = ("temporal_workflow", "temporal_activity")
 _WORKFLOW_PREFIX = "ticket-"
 

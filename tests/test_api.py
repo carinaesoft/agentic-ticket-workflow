@@ -251,3 +251,18 @@ async def test_temporal_failures_are_503(error, detail) -> None:
         if detail != "no worker available to answer":
             post = await http.post("/tickets", json=new_ticket())
             assert (post.status_code, post.json()) == (503, {"detail": detail})
+
+
+def test_production_app_configures_json_logging_at_creation() -> None:
+    import logging
+
+    from app.logging import JsonFormatter
+
+    root = logging.getLogger()
+    previous_handlers, previous_level = root.handlers[:], root.level
+    try:
+        create_app(settings=Settings())
+        assert any(isinstance(h.formatter, JsonFormatter) for h in root.handlers)
+        assert logging.getLogger("uvicorn.error").propagate
+    finally:
+        root.handlers, root.level = previous_handlers, previous_level

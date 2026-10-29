@@ -28,7 +28,8 @@
 | 3 | 3.4 | Worker and sample scenarios | inline | done | 08c3039 |
 | 4 | 4.1 | API | inline | done | ea80d6c |
 | 4 | 4.2 | Containers | inline | done | 1fa05f8 |
-| 4 | 4.3 | Demo script | inline | done | pending |
+| 4 | 4.3 | Demo script | inline | done | 0dadd1e |
+| 4 | 4.4 | JSON logs from uvicorn startup | inline | done | pending |
 | 5 | 5.1 | README | dispatch | todo | — |
 | 5 | 5.2 | CI | dispatch:cheap | todo | — |
 | 5 | 5.3 | End-to-end verification | inline | todo | — |
@@ -81,6 +82,8 @@ Step titles match the spec's Implementation Plan; each Step is one commit and le
 - **4.1 API** — schemas, routes, lifespan Temporal client, 404/409/503 mapping; API tests against a time-skipping env.
 - **4.2 Containers** — Dockerfile, Compose (temporal, api, worker, offline `tests` profile), `.env.example`, `.dockerignore`; `.env.example` parity test.
 - **4.3 Demo script** — `scripts/demo.sh`; `bash -n` test.
+
+- **4.4 JSON logs from uvicorn startup** — fix forward found by the checkpoint-4 Compose smoke run: the API configured JSON logging in the lifespan, after uvicorn had already printed its plain-text startup lines. Configure logging when the production app is created instead; test it.
 
 ### Phase 5 — Documentation and CI
 

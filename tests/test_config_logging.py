@@ -74,6 +74,11 @@ def test_formatter_emits_one_json_object_with_ids() -> None:
     assert entry["ts"].endswith("+00:00")
 
 
+def test_formatter_drops_uvicorn_color_message() -> None:
+    entry = json.loads(JsonFormatter().format(make_record(color_message="\x1b[36mhi")))
+    assert "color_message" not in entry
+
+
 def test_formatter_lifts_workflow_id_from_temporal_extra() -> None:
     record = make_record(
         ticket_id="T-2",

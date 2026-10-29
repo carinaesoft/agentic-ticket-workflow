@@ -47,7 +47,6 @@ def create_app(client: Client | None = None, settings: Settings | None = None) -
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if app.state.client is None:
-            configure_logging(app.state.settings.log_level)
             app.state.client = await Client.connect(
                 app.state.settings.temporal_address,
                 namespace=app.state.settings.temporal_namespace,
@@ -59,6 +58,10 @@ def create_app(client: Client | None = None, settings: Settings | None = None) -
     app = FastAPI(title="Ticket workflow service", lifespan=lifespan)
     app.state.client = client
     app.state.settings = settings or Settings()
+    if client is None:
+        # At import time, so uvicorn's own startup lines are JSON too (the lifespan runs
+        # after them).
+        configure_logging(app.state.settings.log_level)
     _add_routes(app)
     return app
 
