@@ -7,6 +7,7 @@
 **Last commit:** 2274371 — fix(rules): allow refunds only from paid invoices (plus the 24 h test commit)
 
 ## Fix run — API, logs, Compose
+- 4.8: docker-compose.yml interpolates every setting (defaults = Settings defaults, keys empty); verified with docker compose config: no .env → fake/0.2, .env → its values, shell HELPDESK_FAILURE_RATE=0.7 wins over .env. tests/test_compose.py guards names and defaults; the tests image copies docker-compose.yml.
 - 4.7: uvicorn runs with --no-access-log (and configure_logging disables uvicorn.access); a pure ASGI middleware logs `http_request` (method, path, status, duration_ms) for ticket routes and binds the ticket (path, or the POST body) so every API line of the request has ticket_id and workflow_id. Access-line parsing removed from app/logging.py.
 - 4.6: API connects to Temporal on first use (any connect failure → 503 `workflow service unavailable`, retried next request); a status query failing with FAILED_PRECONDITION or DEADLINE_EXCEEDED → 503 `no worker available to answer`. No error-text matching.
 

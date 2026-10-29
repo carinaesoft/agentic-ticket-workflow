@@ -26,7 +26,7 @@ RUN pip install ".[dev]"
 COPY tests ./tests
 COPY scripts ./scripts
 COPY samples ./samples
-COPY .env.example ./
+COPY .env.example docker-compose.yml ./
 
 # Download the time-skipping test server at build time so `pytest` runs with no network.
 ENV TEMPORAL_TEST_SERVER_DIR=/srv/.temporal-test-server

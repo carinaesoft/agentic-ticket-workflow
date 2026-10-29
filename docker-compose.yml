@@ -1,5 +1,7 @@
 # Local stack: Temporal dev server (+ web UI), the API and the worker, in fake LLM mode.
-# Works without a .env file; copy .env.example to .env to override settings.
+# Works without a .env file. Override settings in .env (copy .env.example) or in the shell,
+# e.g. `HELPDESK_FAILURE_RATE=0.7 docker compose up`; the shell wins over .env. Empty values
+# count as unset, so the app's own defaults apply.
 name: agentic-ticket-workflow
 
 x-app: &app
@@ -12,6 +14,21 @@ x-app: &app
       required: false
   environment:
     TEMPORAL_ADDRESS: temporal:7233
+    TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+    TEMPORAL_TASK_QUEUE: ${TEMPORAL_TASK_QUEUE:-tickets}
+    LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
+    AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+    AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+    AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-}
+    AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-}
+    AGENT_MAX_TURNS: ${AGENT_MAX_TURNS:-6}
+    AGENT_MAX_PARSE_RETRIES: ${AGENT_MAX_PARSE_RETRIES:-2}
+    HELPDESK_FAILURE_RATE: ${HELPDESK_FAILURE_RATE:-0.2}
+    HELPDESK_LOST_RESPONSE_RATE: ${HELPDESK_LOST_RESPONSE_RATE:-0.1}
+    HELPDESK_SEED: ${HELPDESK_SEED:-}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
   depends_on:
     temporal:
       condition: service_healthy
