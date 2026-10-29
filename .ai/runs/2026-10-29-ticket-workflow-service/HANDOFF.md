@@ -1,23 +1,23 @@
 # Handoff — 2026-10-29-ticket-workflow-service
 
-**Last updated:** 2026-10-29T15:09:14Z
+**Last updated:** 2026-10-29T15:14:29Z
 **Branch:** feat/ticket-workflow-service
-**PR:** not yet opened
-**Current phase/step:** Phase 1 Step 1.1
-**Last commit:** — (run folder only)
+**PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (draft)
+**Current phase/step:** Phase 2 Step 2.1
+**Last commit:** 914f457 — feat(core): add environment settings and JSON-lines logging
 
 ## What just happened
-- Plan written from the source spec; package versions and the Temporal image tag re-checked (unchanged); default OpenAI model updated (see PLAN.md Deviations).
+- Phase 1 landed: skeleton, domain models + data files + DataStore, rules with full unit matrix, settings and JSON logging. Checkpoint 1 green (76 tests).
 
 ## Next concrete action
-- Step 1.1 — project skeleton.
+- Step 2.1 — agent tools (`app/agent/tools.py`).
 
 ## Blockers / open questions
 - none
 
 ## Environment caveats
-- Dev runtime runnable: yes (Python 3.12, uv, Docker + Compose available)
-- Browser / UI checks: skipped — the service has no UI (browser provider `none`); verification is through tests and HTTP requests
+- Dev runtime runnable: yes (`uv venv .venv`, `uv pip install -e ".[dev]"`)
+- Browser / UI checks: skipped — no UI
 - Database/migration state: clean (no database)
 
 ## Worktree
