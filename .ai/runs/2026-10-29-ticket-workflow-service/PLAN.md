@@ -23,8 +23,8 @@
 | 2 | 2.3 | Fake model | inline | done | 5898b76 |
 | 2 | 2.4 | Real adapter | inline | done | 82deb65 |
 | 3 | 3.1 | Fake Helpdesk | inline | done | f6957ae |
-| 3 | 3.2 | Activities | inline | done | pending |
-| 3 | 3.3 | Workflow | inline | todo | — |
+| 3 | 3.2 | Activities | inline | done | 6546eba |
+| 3 | 3.3 | Workflow | inline | done | pending |
 | 3 | 3.4 | Worker and sample scenarios | inline | todo | — |
 | 4 | 4.1 | API | inline | todo | — |
 | 4 | 4.2 | Containers | inline | todo | — |
@@ -95,6 +95,7 @@ Recorded as they are decided; each is minimal.
 1. **Default OpenAI model.** The spec names `gpt-4o-mini`. OpenAI's deprecations page (checked 2026-10-29) lists `gpt-4o-mini-2024-07-18` for removal on 2027-01-14 with `gpt-6-luna` as the replacement; the `gpt-6-luna` model page lists Chat Completions, function calling and structured outputs. Default `OPENAI_MODEL` is therefore `gpt-6-luna`. The same model page states that Chat Completions supports function calling for this model only with `reasoning_effort` set to `none`, so the OpenAI (non-Azure) request also sends `reasoning_effort="none"`. Azure keeps the spec's request shape because the deployment's model is unknown. Not verified against the live API (no key in this run).
 2. **`.gitignore`** also ignores `.ai/cezar/` (local tooling state of the agent runner that must never be committed).
 3. **`WorkflowStatus.failure_reason`.** The spec's pseudocode sets `result = failure reason` on a failed act step, but `result` is typed `ActionResult`. A separate optional `failure_reason: str` field carries the reason instead, so `result` keeps one type.
+4. **`tests/conftest.py` lands in Step 3.3, not 3.4.** The workflow tests of Step 3.3 already need the shared time-skipping environment fixture (with the cached test-server directory). Step 3.4 adds the warm-up script and the end-to-end scenarios as planned.
 
 ## Versions (checked 2026-10-29)
 
