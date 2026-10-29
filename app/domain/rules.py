@@ -8,6 +8,7 @@ ticket text or model output can push an invalid action through.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -32,6 +33,8 @@ MAX_MESSAGE_CHARS = 2000
 MAX_REASON_CHARS = 500
 REJECTED_PREFIX = "decision rejected by rules: "
 CENT = Decimal("0.01")
+# Plain decimal notation only: Decimal() alone also takes "4_9", "+49" or non-ASCII digits.
+DECIMAL_STRING = re.compile(r"-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?")
 PAID = "paid"  # only a paid invoice can be refunded
 
 
@@ -156,6 +159,8 @@ def _check_reason(fields: dict[str, Any], kind: str, errors: list[str]) -> str:
 
 def _to_decimal(value: Any) -> Decimal | None:
     if isinstance(value, bool) or not isinstance(value, str | int | float):
+        return None
+    if isinstance(value, str) and not DECIMAL_STRING.fullmatch(value.strip()):
         return None
     try:
         amount = Decimal(str(value))

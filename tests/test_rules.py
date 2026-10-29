@@ -111,7 +111,10 @@ def test_refund_without_invoice_escalates() -> None:
     assert_escalated(check({"kind": "refund", "amount_eur": "1"}), "refund requires an invoice_id")
 
 
-@pytest.mark.parametrize("amount", ["abc", True, None, [1], "NaN", "Infinity"])
+@pytest.mark.parametrize(
+    "amount",
+    ["abc", True, None, [1], "NaN", "Infinity", "4_9", "+49", "49.", "\u0664\u0669"],
+)
 def test_refund_with_non_decimal_amount_escalates(amount) -> None:
     out = check({"kind": "refund", "invoice_id": "INV-1002", "amount_eur": amount})
     assert_escalated(out, "refund requires amount_eur")
