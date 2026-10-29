@@ -40,7 +40,8 @@
 | 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | done | aaa22f0 |
 | 4 | 4.4-review-fix | Ticket IDs on the query-failure log line | inline | done | 20febe6 |
 | 3 | 3.3-qa-fix | Reconcile a lost response after the last execute_action attempt | inline | done | f3450b7 |
-| 1 | 1.3-qa-fix | Refunds only from paid invoices | inline | done | pending |
+| 1 | 1.3-qa-fix | Refunds only from paid invoices | inline | done | 2274371 |
+| 3 | 3.3-qa-fix-2 | 24 h approval test asserts elapsed workflow time | inline | done | pending |
 
 ## Goal
 

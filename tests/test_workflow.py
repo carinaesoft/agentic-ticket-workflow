@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -188,9 +189,14 @@ async def test_refund_approved_waits_then_refunds_once(env) -> None:
 async def test_refund_without_answer_escalates_after_24_hours(env) -> None:
     fake = FakeActivities(decide=decide_output(REFUND))
     async with started(env, fake) as handle:
-        await wait_for_step(handle, WorkflowStep.AWAITING_APPROVAL)
-        status = await result(handle)  # the test server skips the 24 h timer
+        waiting = await wait_for_step(handle, WorkflowStep.AWAITING_APPROVAL)
+        await env.sleep(timedelta(hours=23, minutes=59))
+        still = await handle.query(TicketWorkflow.status)
+        assert still.step == WorkflowStep.AWAITING_APPROVAL  # one minute before the deadline
+        assert fake.executed == []
+        status = await result(handle)  # the test server skips the rest of the 24 h timer
 
+    assert status.updated_at - waiting.updated_at >= timedelta(hours=24)
     assert status.step == WorkflowStep.COMPLETED
     assert status.decision.action == EscalateAction(
         reason="refund approval not received within 24 hours"
