@@ -37,6 +37,19 @@ class ChatModel(Protocol):
 
 REQUEST_TIMEOUT_SECONDS = 20.0
 
+# Request parameters per provider, besides model, messages and tools. Only parameters the
+# official docs allow for the default model (gpt-6-luna) are sent:
+# - reasoning_effort="none": Chat Completions function calling works only with "none"
+#   (OpenAI gpt-6-luna model page; Azure reasoning models how-to). The default is "medium".
+# - no temperature: allowed only with effort "none" and not confirmed for 0 (OpenAI), and
+#   listed as unsupported for reasoning models (Azure); the default is used.
+# - no tool_choice: "auto" is already the default when tools are present.
+# - no response_format: JSON mode is not documented for gpt-6-luna; the prompt asks for
+#   JSON and the agent loop re-prompts on an unreadable answer.
+OPENAI_REQUEST_PARAMS: dict[str, Any] = {"reasoning_effort": "none"}
+# Assumes the deployment runs the default model (or another one that accepts "none").
+AZURE_REQUEST_PARAMS: dict[str, Any] = {"reasoning_effort": "none"}
+
 
 class LLMConfigError(Exception):
     """Provider settings are missing or invalid; retrying cannot fix it."""
@@ -56,13 +69,7 @@ class OpenAIChatModel:
 
     async def complete(self, messages: list[Message], tools: list[dict[str, Any]]) -> ModelReply:
         response = await self._client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            temperature=0,
-            response_format={"type": "json_object"},
-            **self._extra_params,
+            model=self._model, messages=messages, tools=tools, **self._extra_params
         )
         message = response.choices[0].message
         return ModelReply(
@@ -94,9 +101,7 @@ def build_chat_model(settings: Settings) -> ChatModel:
             max_retries=0,
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
-        # The default model only supports function calling in Chat Completions with
-        # reasoning_effort="none" (OpenAI model docs).
-        return OpenAIChatModel(client, settings.openai_model, {"reasoning_effort": "none"})
+        return OpenAIChatModel(client, settings.openai_model, OPENAI_REQUEST_PARAMS)
 
     missing = [
         name
@@ -104,17 +109,34 @@ def build_chat_model(settings: Settings) -> ChatModel:
             ("AZURE_OPENAI_API_KEY", settings.azure_openai_api_key),
             ("AZURE_OPENAI_ENDPOINT", settings.azure_openai_endpoint),
             ("AZURE_OPENAI_DEPLOYMENT", settings.azure_openai_deployment),
-            ("AZURE_OPENAI_API_VERSION", settings.azure_openai_api_version),
         )
         if not value
     ]
     if missing:
         raise LLMConfigError(f"LLM_PROVIDER=azure requires {', '.join(missing)}")
-    client = openai.AsyncAzureOpenAI(
-        api_key=settings.azure_openai_api_key.get_secret_value(),
+    return OpenAIChatModel(
+        _azure_client(settings), settings.azure_openai_deployment, AZURE_REQUEST_PARAMS
+    )
+
+
+def _azure_client(settings: Settings) -> Any:
+    """The v1 API (``/openai/v1/``, no api-version) unless a dated version is set.
+
+    A dated ``AZURE_OPENAI_API_VERSION`` must be 2024-12-01-preview or later, the first
+    version with ``reasoning_effort``.
+    """
+    api_key = settings.azure_openai_api_key.get_secret_value()
+    if settings.azure_openai_api_version is None:
+        return openai.AsyncOpenAI(
+            api_key=api_key,
+            base_url=f"{settings.azure_openai_endpoint.rstrip('/')}/openai/v1/",
+            max_retries=0,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    return openai.AsyncAzureOpenAI(
+        api_key=api_key,
         azure_endpoint=settings.azure_openai_endpoint,
         api_version=settings.azure_openai_api_version,
         max_retries=0,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    return OpenAIChatModel(client, settings.azure_openai_deployment)

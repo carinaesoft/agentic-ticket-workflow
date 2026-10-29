@@ -368,7 +368,7 @@ them without secrets.
 | `AZURE_OPENAI_API_KEY` | unset | Required when `LLM_PROVIDER=azure`. |
 | `AZURE_OPENAI_ENDPOINT` | unset | Azure resource endpoint; required for `azure`. |
 | `AZURE_OPENAI_DEPLOYMENT` | unset | Deployment name, used as the model; required for `azure`. |
-| `AZURE_OPENAI_API_VERSION` | unset | API version; required for `azure`. |
+| `AZURE_OPENAI_API_VERSION` | unset | Unset: the Azure v1 API (`/openai/v1/`). A dated version must be `2024-12-01-preview` or later. |
 | `AGENT_MAX_TURNS` | `6` | Maximum model turns per decision. |
 | `AGENT_MAX_PARSE_RETRIES` | `2` | Re-prompts when the answer is not valid decision JSON. |
 | `HELPDESK_FAILURE_RATE` | `0.2` | Probability (0.0-1.0) that the fake Helpdesk fails a call before applying it. |
@@ -382,8 +382,7 @@ Missing provider settings stop the worker at startup with a message naming the v
 deprecations page (checked 2026-10-29) lists `gpt-4o-mini` for removal on 2027-01-14 and
 names `gpt-6-luna` as the replacement. The `gpt-6-luna` model page says Chat Completions
 function calling works only with `reasoning_effort` set to `none`, so for OpenAI the adapter
-sends `reasoning_effort="none"`. Azure requests do not send it, because the model behind a
-deployment is unknown. **The real-model path has not been run against the live API**; it is
+sends `reasoning_effort="none"`, for OpenAI and for Azure. **The real-model path has not been run against the live API**; it is
 tested only against a fake client object.
 
 ## Deploying on Azure

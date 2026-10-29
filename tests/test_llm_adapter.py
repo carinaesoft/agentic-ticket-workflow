@@ -37,23 +37,6 @@ def tool_call(call_id: str, name: str, arguments: str):
 MESSAGES = [{"role": "system", "content": "json please"}, {"role": "user", "content": "hi"}]
 
 
-async def test_request_shape() -> None:
-    client = fake_client(SimpleNamespace(content='{"a": 1}', tool_calls=None))
-    model = OpenAIChatModel(client, "some-model", {"reasoning_effort": "none"})
-    await model.complete(MESSAGES, TOOL_SCHEMAS)
-
-    (request,) = client.chat.completions.requests
-    assert request == {
-        "model": "some-model",
-        "messages": MESSAGES,
-        "tools": TOOL_SCHEMAS,
-        "tool_choice": "auto",
-        "temperature": 0,
-        "response_format": {"type": "json_object"},
-        "reasoning_effort": "none",
-    }
-
-
 async def test_tool_calls_are_mapped_into_model_reply() -> None:
     message = SimpleNamespace(
         content=None,
@@ -90,6 +73,43 @@ def settings(**values) -> Settings:
     return Settings.model_validate(values)
 
 
+OPENAI_SETTINGS = {"llm_provider": "openai", "openai_api_key": "test-key"}
+AZURE_SETTINGS = {
+    "llm_provider": "azure",
+    "azure_openai_api_key": "test-key",
+    "azure_openai_endpoint": "https://example.openai.azure.com/",
+    "azure_openai_deployment": "tickets-deployment",
+}
+
+
+async def sent_request(**values) -> dict:
+    """The exact keyword arguments the built model passes to ``chat.completions.create``."""
+    model = build_chat_model(settings(**values))
+    client = fake_client(SimpleNamespace(content='{"a": 1}', tool_calls=None))
+    model._client = client
+    await model.complete(MESSAGES, TOOL_SCHEMAS)
+    (request,) = client.chat.completions.requests
+    return request
+
+
+async def test_openai_request_parameters() -> None:
+    assert await sent_request(**OPENAI_SETTINGS) == {
+        "model": "gpt-6-luna",
+        "messages": MESSAGES,
+        "tools": TOOL_SCHEMAS,
+        "reasoning_effort": "none",
+    }
+
+
+async def test_azure_request_parameters() -> None:
+    assert await sent_request(**AZURE_SETTINGS) == {
+        "model": "tickets-deployment",
+        "messages": MESSAGES,
+        "tools": TOOL_SCHEMAS,
+        "reasoning_effort": "none",
+    }
+
+
 def test_fake_provider_builds_fake_model() -> None:
     assert isinstance(build_chat_model(settings(llm_provider="fake")), FakeChatModel)
 
@@ -103,9 +123,10 @@ def test_azure_names_every_missing_setting() -> None:
     with pytest.raises(LLMConfigError) as excinfo:
         build_chat_model(settings(llm_provider="azure", azure_openai_api_key="k"))
     message = str(excinfo.value)
-    for name in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_DEPLOYMENT", "AZURE_OPENAI_API_VERSION"):
+    for name in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_DEPLOYMENT"):
         assert name in message
-    assert "AZURE_OPENAI_API_KEY" not in message
+    for name in ("AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION"):
+        assert name not in message
 
 
 def test_openai_client_has_no_sdk_retries_and_a_timeout() -> None:
@@ -117,17 +138,21 @@ def test_openai_client_has_no_sdk_retries_and_a_timeout() -> None:
     assert model._model == "gpt-6-luna"
 
 
-def test_azure_client_uses_deployment_as_model() -> None:
+def test_azure_uses_the_v1_api_by_default() -> None:
+    model = build_chat_model(settings(**AZURE_SETTINGS))
+    assert type(model._client) is openai.AsyncOpenAI
+    assert str(model._client.base_url) == "https://example.openai.azure.com/openai/v1/"
+    assert model._client.max_retries == 0
+    assert model._client.timeout == REQUEST_TIMEOUT_SECONDS
+    assert model._model == "tickets-deployment"
+
+
+def test_azure_with_a_dated_api_version_uses_the_azure_client() -> None:
     model = build_chat_model(
-        settings(
-            llm_provider="azure",
-            azure_openai_api_key="test-key",
-            azure_openai_endpoint="https://example.openai.azure.com",
-            azure_openai_deployment="tickets-deployment",
-            azure_openai_api_version="2024-10-21",
-        )
+        settings(**AZURE_SETTINGS, azure_openai_api_version="2024-12-01-preview")
     )
     assert isinstance(model._client, openai.AsyncAzureOpenAI)
+    assert model._client._api_version == "2024-12-01-preview"
     assert model._client.max_retries == 0
+    assert model._client.timeout == REQUEST_TIMEOUT_SECONDS
     assert model._model == "tickets-deployment"
-    assert model._extra_params == {}
