@@ -29,3 +29,10 @@
 
 ## 2026-10-29T15:43:02Z — delegation
 - Step 5.1 (README) dispatched to one executor subagent (tier: standard → sonnet), per the plan's Exec column. Main session verifies the commit before continuing.
+
+## 2026-10-29T15:51:00Z — final gate
+- Steps 5.1–5.3 plus fix-forward Steps 3.4-review-fix and 4.5 landed (09f8a46..3e06eb5). Final gate: ruff check, ruff format --check, pytest (173 passed) — all green; CI green on GitHub.
+- Delegation: Step 5.2 (CI) dispatched to an executor subagent (tier cheap → haiku); verified commit efc7135 and its CI run.
+- Problem: the README written in 5.1 described an adversarial-model test that did not exist yet (spec defence 7) → added as Step 3.4-review-fix.
+- Problem: the first Step 5.3 run showed uvicorn access lines about T-2 without ticket/workflow IDs → fixed as Step 4.5, then the whole 5.3 run was repeated on rebuilt images.
+- Integration suite via om-integration-tests skipped: no UI, no browser provider, no separate runner (coverage listed in final-gate-checks.md). Design-system pass skipped: no such tooling.

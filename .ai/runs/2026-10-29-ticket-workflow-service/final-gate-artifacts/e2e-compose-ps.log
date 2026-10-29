@@ -1,0 +1,4 @@
+SERVICE    IMAGE                           STATE     <no value>
+api        agentic-ticket-workflow:local   running   
+temporal   temporalio/temporal:1.9.1       running   healthy
+worker     agentic-ticket-workflow:local   running   

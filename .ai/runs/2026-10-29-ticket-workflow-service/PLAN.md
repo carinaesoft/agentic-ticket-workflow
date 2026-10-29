@@ -34,7 +34,7 @@
 | 3 | 3.4-review-fix | Adversarial scripted model through loop and workflow | inline | done | 35668e6 |
 | 5 | 5.2 | CI | dispatch:cheap | done | efc7135 |
 | 4 | 4.5 | Ticket IDs on access-log lines | inline | done | 07ef3cb |
-| 5 | 5.3 | End-to-end verification | inline | done | pending |
+| 5 | 5.3 | End-to-end verification | inline | done | 3e06eb5 |
 
 ## Goal
 

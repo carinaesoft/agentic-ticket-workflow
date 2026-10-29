@@ -1,0 +1,26 @@
+
+== Waiting for the API at http://localhost:8000
+
+== POST /tickets for every sample ticket
+POST T-1  -> 202 {"ticket_id":"T-1","workflow_id":"ticket-T-1","duplicate":false}
+POST T-2  -> 202 {"ticket_id":"T-2","workflow_id":"ticket-T-2","duplicate":false}
+POST T-3  -> 202 {"ticket_id":"T-3","workflow_id":"ticket-T-3","duplicate":false}
+POST T-4  -> 202 {"ticket_id":"T-4","workflow_id":"ticket-T-4","duplicate":false}
+POST T-5  -> 202 {"ticket_id":"T-5","workflow_id":"ticket-T-5","duplicate":false}
+POST T-6  -> 202 {"ticket_id":"T-6","workflow_id":"ticket-T-6","duplicate":false}
+POST T-7  -> 202 {"ticket_id":"T-7","workflow_id":"ticket-T-7","duplicate":false}
+
+== POST T-1 again (duplicate: same workflow, nothing processed twice)
+POST T-1  -> 200 {"ticket_id":"T-1","workflow_id":"ticket-T-1","duplicate":true}
+
+== Approving the T-2 refund
+POST T-2/approval -> 202 {"ticket_id":"T-2","workflow_id":"ticket-T-2","approved":true}
+
+== Final state of every ticket
+{"ticket_id":"T-1","step":"completed","proposed":"reply","action":"reply","detail":"[\"KB-1\"]","result":"reply sent to customer"}
+{"ticket_id":"T-2","step":"completed","proposed":"refund","action":"refund","detail":"INV-1002","result":"refund of 49.00 EUR issued for INV-1002"}
+{"ticket_id":"T-3","step":"completed","proposed":"escalate","action":"escalate","detail":"outage reported by enterprise customer","result":"escalated to a human agent"}
+{"ticket_id":"T-4","step":"completed","proposed":"reply","action":"reply","detail":"[\"KB-4\"]","result":"reply sent to customer"}
+{"ticket_id":"T-5","step":"completed","proposed":"close","action":"close","detail":"not a support request","result":"ticket closed"}
+{"ticket_id":"T-6","step":"completed","proposed":"refund","action":"escalate","detail":"decision rejected by rules: refund amount 5000.00 exceeds invoice INV-1001 amount 49.00","result":"escalated to a human agent"}
+{"ticket_id":"T-7","step":"completed","proposed":null,"action":"escalate","detail":"unknown customer C-999","result":"escalated to a human agent"}
