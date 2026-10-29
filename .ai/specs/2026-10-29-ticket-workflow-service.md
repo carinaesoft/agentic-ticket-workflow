@@ -359,7 +359,7 @@ Missing provider settings with `LLM_PROVIDER≠fake` fail the worker at startup 
 | Approval for a ticket not waiting | `409` with current step. Late signal after the timer → ignored and logged. |
 | Helpdesk transient failure | retried up to 5 attempts with backoff. |
 | Helpdesk effect done, response lost | retry returns stored result; one effect. |
-| Helpdesk down for all attempts | `step = failed`, result reason "helpdesk unavailable after 5 attempts"; ticket readable via GET. |
+| Helpdesk down for all attempts | `lookup_action_result` (≤ 3 attempts) asks the Helpdesk by idempotency key; action recorded → `completed` with that result (logged `action_reconciled`); else `step = failed`, result reason "helpdesk unavailable after 5 attempts"; ticket readable via GET. |
 | Worker restart mid-flight | Temporal re-dispatches; workflow resumes from history; in-memory Helpdesk store is lost (documented limitation). |
 | Temporal down | API returns `503`; worker reconnects on its own. |
 | `GET` with no worker running | Query times out → `503 {"detail": "no worker available to answer"}`. |

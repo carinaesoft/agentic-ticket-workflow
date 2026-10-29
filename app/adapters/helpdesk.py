@@ -3,7 +3,8 @@
 Stands in for an external Helpdesk. It fails transiently at a configurable rate, either
 *before* the effect (nothing happened) or *after* it ("response lost": the effect happened
 but the caller saw an error). An idempotency key makes a retried call return the stored
-result instead of repeating the effect.
+result instead of repeating the effect, and ``lookup`` answers whether an action was
+recorded under a key (used to reconcile after every attempt lost its response).
 
 The store lives in this process's memory: the at-most-once guarantee holds within one
 worker process only. A real Helpdesk would honour the key on its side.
@@ -65,6 +66,11 @@ class FakeHelpdesk:
         if self._rng.random() < self.lost_response_rate:
             raise HelpdeskTransientError("helpdesk response lost after the action was applied")
         return result
+
+    def lookup(self, key: str) -> ActionResult | None:
+        """The stored result for ``key``, or ``None`` when no action was recorded under it."""
+        stored = self._results.get(key)
+        return stored[1] if stored is not None else None
 
     def _apply(self, key: str, action: Action) -> ActionResult:
         reference = f"HD-{len(self._results) + 1:05d}"

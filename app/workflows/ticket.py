@@ -1,6 +1,6 @@
 """The ticket workflow: decide -> validate -> (await approval, refunds only) -> act.
 
-The workflow is the only orchestrator. Everything non-deterministic happens in the two
+The workflow is the only orchestrator. Everything non-deterministic happens in
 activities; the business rules run here, inline, on every decision, so nothing an activity
 returns can skip them. Timeouts and retry policies are module constants (never read from
 the environment) so a configuration change cannot break replay.
@@ -47,6 +47,13 @@ ACT_RETRY = RetryPolicy(
     backoff_coefficient=2.0,
     maximum_interval=timedelta(seconds=10),
     maximum_attempts=5,
+)
+LOOKUP_TIMEOUT = timedelta(seconds=10)
+LOOKUP_RETRY = RetryPolicy(
+    initial_interval=timedelta(seconds=1),
+    backoff_coefficient=2.0,
+    maximum_interval=timedelta(seconds=5),
+    maximum_attempts=3,
 )
 APPROVAL_TIMEOUT_REASON = "refund approval not received within 24 hours"
 REFUND_POLICY_ARTICLE = "KB-2"
@@ -96,27 +103,49 @@ class TicketWorkflow:
             self._status.decision = decision
 
         self._set_step(WorkflowStep.ACTING)
+        request = ActionRequest(
+            workflow_id=self._status.workflow_id,
+            ticket_id=ticket.ticket_id,
+            action=decision.action,
+        )
         try:
             result = await workflow.execute_activity(
                 "execute_action",
-                ActionRequest(
-                    workflow_id=self._status.workflow_id,
-                    ticket_id=ticket.ticket_id,
-                    action=decision.action,
-                ),
+                request,
                 result_type=ActionResult,
                 start_to_close_timeout=ACT_TIMEOUT,
                 retry_policy=ACT_RETRY,
             )
         except ActivityError as err:
-            self._status.failure_reason = _failure_reason(
-                err, f"helpdesk unavailable after {_attempts(ACT_RETRY)}"
+            reason = _failure_reason(err, f"helpdesk unavailable after {_attempts(ACT_RETRY)}")
+            result = None
+            if err.retry_state == RetryState.MAXIMUM_ATTEMPTS_REACHED:
+                result = await self._reconcile(request)
+            if result is None:
+                self._status.failure_reason = reason
+                self._set_step(WorkflowStep.FAILED)
+                return self._status
+            self._log(
+                "action_reconciled", failure=reason, helpdesk_reference=result.helpdesk_reference
             )
-            self._set_step(WorkflowStep.FAILED)
-        else:
-            self._status.result = result
-            self._set_step(WorkflowStep.COMPLETED)
+        self._status.result = result
+        self._set_step(WorkflowStep.COMPLETED)
         return self._status
+
+    async def _reconcile(self, request: ActionRequest) -> ActionResult | None:
+        """After the last attempt failed, ask the Helpdesk whether the action was recorded:
+        the effect may have been applied and only the response lost."""
+        try:
+            return await workflow.execute_activity(
+                "lookup_action_result",
+                request,
+                result_type=ActionResult | None,
+                start_to_close_timeout=LOOKUP_TIMEOUT,
+                retry_policy=LOOKUP_RETRY,
+            )
+        except ActivityError as err:
+            self._log("reconcile_failed", error=_failure_reason(err, "lookup failed"))
+            return None
 
     async def _await_approval(self, decision: Decision) -> Decision:
         self._set_step(WorkflowStep.AWAITING_APPROVAL)

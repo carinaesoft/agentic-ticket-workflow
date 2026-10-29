@@ -58,6 +58,29 @@ def test_lost_response_records_effect_and_retry_returns_stored_result() -> None:
     assert len(helpdesk.refunds) == 1
 
 
+def test_lookup_returns_result_recorded_before_the_response_was_lost() -> None:
+    helpdesk = FakeHelpdesk(
+        failure_rate=0.5, lost_response_rate=0.5, rng=SequenceRandom([0.9, 0.1])
+    )
+    assert helpdesk.lookup("ticket-T-2:refund") is None
+    with pytest.raises(HelpdeskTransientError, match="response lost"):
+        helpdesk.perform("ticket-T-2:refund", REFUND)
+
+    found = helpdesk.lookup("ticket-T-2:refund")
+    assert found is not None
+    assert found.idempotency_key == "ticket-T-2:refund"
+    assert found.outcome_message == "refund of 49.00 EUR issued for INV-1002"
+    assert helpdesk.lookup("ticket-T-3:refund") is None
+    assert len(helpdesk.refunds) == 1  # a lookup never applies anything
+
+
+def test_lookup_finds_nothing_when_the_call_failed_before_the_effect() -> None:
+    helpdesk = FakeHelpdesk(failure_rate=1, rng=random.Random(1))
+    with pytest.raises(HelpdeskTransientError, match="temporarily unavailable"):
+        helpdesk.perform("wf:refund", REFUND)
+    assert helpdesk.lookup("wf:refund") is None
+
+
 def test_stored_result_is_returned_even_while_failing() -> None:
     helpdesk = FakeHelpdesk(rng=random.Random(1))
     first = helpdesk.perform("k:refund", REFUND)

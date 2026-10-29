@@ -115,3 +115,16 @@ async def test_idempotency_key_is_workflow_id_and_kind() -> None:
     assert first.idempotency_key == "ticket-T-2:refund" == idempotency_key("ticket-T-2", refund)
     assert second == first
     assert len(helpdesk.refunds) == 1
+
+
+async def test_lookup_action_result_reports_recorded_action_by_key() -> None:
+    helpdesk = FakeHelpdesk(rng=random.Random(0))
+    acts = activities(helpdesk=helpdesk)
+    env = ActivityEnvironment()
+    refund = RefundAction(invoice_id="INV-1002", amount_eur=Decimal("49.00"))
+    request = ActionRequest(workflow_id="ticket-T-2", ticket_id="T-2", action=refund)
+    assert await env.run(acts.lookup_action_result, request) is None
+
+    executed = await env.run(acts.execute_action, request)
+    assert await env.run(acts.lookup_action_result, request) == executed
+    assert len(helpdesk.refunds) == 1

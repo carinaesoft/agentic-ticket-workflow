@@ -1,9 +1,10 @@
 """Temporal activities.
 
-Everything non-deterministic lives here: the LLM agent loop (``decide_ticket``) and the
-Helpdesk side effect (``execute_action``). Errors that retrying cannot fix are raised as
-``ApplicationError(non_retryable=True)`` at the raise site; anything else propagates and is
-retried by the workflow's retry policy.
+Everything non-deterministic lives here: the LLM agent loop (``decide_ticket``), the
+Helpdesk side effect (``execute_action``) and the read-only reconciliation that asks the
+Helpdesk whether an action was recorded (``lookup_action_result``). Errors that retrying
+cannot fix are raised as ``ApplicationError(non_retryable=True)`` at the raise site;
+anything else propagates and is retried by the workflow's retry policy.
 """
 
 from __future__ import annotations
@@ -121,5 +122,21 @@ class TicketActivities:
             raise ApplicationError(str(exc), type="HelpdeskRejected", non_retryable=True) from exc
         activity.logger.info(
             "action_executed", extra={**extra, "helpdesk_reference": result.helpdesk_reference}
+        )
+        return result
+
+    @activity.defn(name="lookup_action_result")
+    async def lookup_action_result(self, request: ActionRequest) -> ActionResult | None:
+        """Ask the Helpdesk, by idempotency key, whether the action was recorded."""
+        key = idempotency_key(request.workflow_id, request.action)
+        result = self._helpdesk.lookup(key)
+        activity.logger.info(
+            "action_lookup",
+            extra={
+                "ticket_id": request.ticket_id,
+                "action_kind": request.action.kind,
+                "key": key,
+                "found": result is not None,
+            },
         )
         return result

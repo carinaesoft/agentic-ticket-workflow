@@ -60,7 +60,11 @@ def decide_output(action: dict[str, Any], customer_id: str = "C-101", **decision
 
 
 class FakeActivities:
-    """Scriptable stand-ins for decide_ticket / execute_action."""
+    """Scriptable stand-ins for decide_ticket / execute_action / lookup_action_result.
+
+    ``lose_responses`` makes every successful attempt apply the action once (keyed like the
+    Helpdesk) and then fail as if the response was lost.
+    """
 
     def __init__(
         self,
@@ -68,14 +72,18 @@ class FakeActivities:
         decide_error: Exception | None = None,
         act_failures: int = 0,
         act_gate: asyncio.Event | None = None,
+        lose_responses: bool = False,
     ) -> None:
         self.decide = decide
         self.decide_error = decide_error
         self.act_failures = act_failures
         self.act_gate = act_gate
+        self.lose_responses = lose_responses
         self.decide_attempts = 0
         self.act_attempts: list[int] = []
         self.executed: list[ActionRequest] = []
+        self.recorded: dict[str, ActionResult] = {}
+        self.lookups: list[str] = []
 
     def as_list(self) -> list:
         @activity.defn(name="decide_ticket")
@@ -93,15 +101,29 @@ class FakeActivities:
                 await self.act_gate.wait()
             if attempt <= self.act_failures:
                 raise ApplicationError("helpdesk down", type="HelpdeskTransientError")
-            self.executed.append(request)
-            return ActionResult(
-                kind=request.action.kind,
-                helpdesk_reference="HD-1",
-                idempotency_key=f"{request.workflow_id}:{request.action.kind}",
-                outcome_message="done",
-            )
+            key = f"{request.workflow_id}:{request.action.kind}"
+            if key not in self.recorded:
+                self.executed.append(request)
+                self.recorded[key] = ActionResult(
+                    kind=request.action.kind,
+                    helpdesk_reference="HD-1",
+                    idempotency_key=key,
+                    outcome_message="done",
+                )
+            if self.lose_responses:
+                raise ApplicationError(
+                    "helpdesk response lost after the action was applied",
+                    type="HelpdeskTransientError",
+                )
+            return self.recorded[key]
 
-        return [decide_ticket, execute_action]
+        @activity.defn(name="lookup_action_result")
+        async def lookup_action_result(request: ActionRequest) -> ActionResult | None:
+            key = f"{request.workflow_id}:{request.action.kind}"
+            self.lookups.append(key)
+            return self.recorded.get(key)
+
+        return [decide_ticket, execute_action, lookup_action_result]
 
 
 @asynccontextmanager
@@ -256,6 +278,36 @@ async def test_act_always_failing_ends_failed_with_reason(env) -> None:
     assert status.result is None
     assert status.failure_reason == "helpdesk unavailable after 5 attempts: HelpdeskTransientError"
     assert fake.act_attempts == [1, 2, 3, 4, 5]
+    assert fake.lookups == [f"{handle.id}:reply"]  # reconciled once, nothing was recorded
+    assert fake.executed == []
+
+
+async def test_action_applied_but_every_response_lost_reconciles_to_completed(env) -> None:
+    fake = FakeActivities(decide=decide_output(REPLY), lose_responses=True)
+    async with started(env, fake) as handle:
+        status = await result(handle)
+
+    assert fake.act_attempts == [1, 2, 3, 4, 5]
+    assert fake.lookups == [f"{handle.id}:reply"]
+    assert status.step == WorkflowStep.COMPLETED
+    assert status.failure_reason is None
+    assert status.result == fake.recorded[f"{handle.id}:reply"]
+    assert len(fake.executed) == 1  # exactly one effect
+
+
+async def test_refund_applied_only_in_last_attempt_reconciles_to_completed(env) -> None:
+    fake = FakeActivities(decide=decide_output(REFUND), act_failures=4, lose_responses=True)
+    async with started(env, fake) as handle:
+        await wait_for_step(handle, WorkflowStep.AWAITING_APPROVAL)
+        await handle.signal(
+            TicketWorkflow.submit_approval, ApprovalInput(approved=True, reviewer="lead")
+        )
+        status = await result(handle)
+
+    assert fake.act_attempts == [1, 2, 3, 4, 5]
+    assert status.step == WorkflowStep.COMPLETED
+    assert status.result.idempotency_key == f"{handle.id}:refund"
+    assert [r.action.kind for r in fake.executed] == ["refund"]
 
 
 async def test_approval_after_timeout_is_ignored(env) -> None:

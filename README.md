@@ -292,9 +292,13 @@ not read from the environment, so a configuration change cannot break workflow r
   with a readable reason, for example `unknown customer C-999` or
   `decision step failed after 3 attempts: <error type>`. The escalation still goes through
   `execute_action`.
-- **When the Helpdesk is down for all 5 attempts** the step becomes `failed` and
-  `failure_reason` holds the reason (for example `helpdesk unavailable after 5 attempts:
-  HelpdeskTransientError`). The ticket stays readable with `GET /tickets/{id}`.
+- **When all 5 `execute_action` attempts fail** the workflow runs a short reconciliation
+  activity, `lookup_action_result` (at most 3 attempts), which asks the Helpdesk by
+  idempotency key whether the action was recorded. If it was (the effect happened and only
+  the response was lost), the step becomes `completed` with that result and the workflow logs
+  `action_reconciled`. Otherwise the step becomes `failed` and `failure_reason` holds the
+  reason (for example `helpdesk unavailable after 5 attempts: HelpdeskTransientError`). The
+  ticket stays readable with `GET /tickets/{id}`.
 - **Idempotency.** `execute_action` calls the Helpdesk with the key
   `{workflow_id}:{kind}`, for example `ticket-T-2:refund`. The key is the same on every
   retry, so a retried call returns the stored result instead of repeating the effect. This

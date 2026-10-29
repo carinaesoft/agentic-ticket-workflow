@@ -1,6 +1,6 @@
 """Temporal worker entrypoint: ``python -m app.worker``.
 
-Hosts ``TicketWorkflow`` and the two activities on the ``tickets`` task queue. It owns the
+Hosts ``TicketWorkflow`` and its activities on the ``tickets`` task queue. It owns the
 read-only reference data, the chat model selected by ``LLM_PROVIDER`` and the in-memory
 fake Helpdesk. Missing provider settings fail the process at startup.
 """
@@ -50,7 +50,11 @@ def build_worker(client: Client, task_queue: str, activities: TicketActivities) 
         client,
         task_queue=task_queue,
         workflows=[TicketWorkflow],
-        activities=[activities.decide_ticket, activities.execute_action],
+        activities=[
+            activities.decide_ticket,
+            activities.execute_action,
+            activities.lookup_action_result,
+        ],
         graceful_shutdown_timeout=timedelta(seconds=10),
     )
 
