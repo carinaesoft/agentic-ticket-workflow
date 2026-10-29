@@ -328,7 +328,8 @@ approval gate do not depend on the model behaving.
    articles; categories, priorities and action kinds must be in the allowed sets.
 5. **Untrusted envelope.** The subject and body are placed inside an `<untrusted_ticket>`
    block and the system prompt says the content is data, not instructions. The ticket cannot
-   close the block: any `<untrusted_ticket` or `</untrusted_ticket` in the text is escaped.
+   close the block: any `<untrusted_ticket` or `</untrusted_ticket` in the text, in any letter
+   case and with optional spaces, is escaped.
 6. **Strict parsing.** The model's answer must parse into the decision schema. Anything else
    is an unreadable answer (re-prompt, then escalation), never a partial decision.
 

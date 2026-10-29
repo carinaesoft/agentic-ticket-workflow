@@ -6,6 +6,8 @@ enforced in code (rules in the workflow, scoped tools, the approval gate).
 
 from __future__ import annotations
 
+import re
+
 from app.domain.models import ActionKind, Category, Priority, Ticket
 
 ENVELOPE_TAG = "untrusted_ticket"
@@ -41,11 +43,12 @@ Allowed action kinds: {_values(ActionKind)}.
 """
 
 
+_TAG_OPENING = re.compile(rf"<(\s*/?\s*{ENVELOPE_TAG})", re.IGNORECASE)
+
+
 def _neutralise(text: str) -> str:
-    # The customer cannot close (or reopen) the envelope from inside it.
-    return text.replace(f"<{ENVELOPE_TAG}", f"&lt;{ENVELOPE_TAG}").replace(
-        f"</{ENVELOPE_TAG}", f"&lt;/{ENVELOPE_TAG}"
-    )
+    # The customer cannot close (or reopen) the envelope from inside it, in any spelling.
+    return _TAG_OPENING.sub(r"&lt;\1", text)
 
 
 def ticket_envelope(ticket: Ticket) -> str:
