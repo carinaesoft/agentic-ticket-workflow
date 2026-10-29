@@ -67,7 +67,8 @@
 | 1 | 1.7 | Reference data and sample tickets replaced 1:1 with the source records; golden test | inline | done | da8cede |
 | 2 | 2.5 | Fake model keyword rules fitted to the source tickets and KB | inline | done | 635dfed |
 | 5 | 5.13 | Spec expectations table, README examples and run notes on the source data | inline | done | fb3819e |
-| 5 | 5.14 | README example run refreshed from a Compose run on the source data | inline | done | pending |
+| 5 | 5.14 | README example run refreshed from a Compose run on the source data | inline | done | 4d7e000 |
+| 5 | 5.15 | README AI section: invented reference data case | inline | done | pending |
 
 ## Goal
 
