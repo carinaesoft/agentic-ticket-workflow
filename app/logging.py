@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 from datetime import UTC, datetime
 from typing import Any
@@ -24,6 +25,7 @@ _STANDARD_ATTRS = set(logging.makeLogRecord({}).__dict__) | {
 }
 _TEMPORAL_EXTRAS = ("temporal_workflow", "temporal_activity")
 _WORKFLOW_PREFIX = "ticket-"
+_TICKET_PATH = re.compile(r"^/tickets/([A-Za-z0-9_-]{1,64})(?:[/?]|$)")
 
 
 def workflow_id_for(ticket_id: str) -> str:
@@ -58,6 +60,10 @@ class JsonFormatter(logging.Formatter):
                     entry["attempt"] = info["attempt"]
                 if "activity_type" in info:
                     entry["activity"] = info["activity_type"]
+        if entry["ticket_id"] is None and record.name == "uvicorn.access":
+            entry["ticket_id"] = _ticket_from_access_log(record)
+            if entry["ticket_id"]:
+                entry["workflow_id"] = workflow_id_for(entry["ticket_id"])
         workflow_id = entry["workflow_id"]
         if entry["ticket_id"] is None and str(workflow_id).startswith(_WORKFLOW_PREFIX):
             # Workflow IDs are ``ticket-{ticket_id}``, so SDK log lines about a ticket's
@@ -69,6 +75,17 @@ class JsonFormatter(logging.Formatter):
         if record.exc_info:
             entry["exc"] = self.formatException(record.exc_info)
         return json.dumps(entry, default=str)
+
+
+def _ticket_from_access_log(record: logging.LogRecord) -> str | None:
+    """The ticket ID in a uvicorn access line for ``/tickets/{ticket_id}[/...]``."""
+    # uvicorn's access record args: (client_addr, method, full_path, http_version, status)
+    args = record.args
+    if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+        match = _TICKET_PATH.match(args[2])
+        if match:
+            return match.group(1)
+    return None
 
 
 def configure_logging(level: str = "INFO") -> None:

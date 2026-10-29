@@ -111,6 +111,30 @@ def test_formatter_derives_ticket_id_from_workflow_id() -> None:
     assert json.loads(JsonFormatter().format(make_record()))["ticket_id"] is None
 
 
+@pytest.mark.parametrize(
+    ("path", "ticket_id"),
+    [
+        ("/tickets/T-2", "T-2"),
+        ("/tickets/T-2/approval", "T-2"),
+        ("/tickets/T-2?x=1", "T-2"),
+        ("/tickets", None),
+        ("/docs", None),
+    ],
+)
+def test_formatter_adds_ids_to_uvicorn_access_lines(path, ticket_id) -> None:
+    record = logging.makeLogRecord(
+        {
+            "name": "uvicorn.access",
+            "levelname": "INFO",
+            "msg": '%s - "%s %s HTTP/%s" %d',
+            "args": ("172.30.0.1:4000", "GET", path, "1.1", 200),
+        }
+    )
+    entry = json.loads(JsonFormatter().format(record))
+    assert entry["ticket_id"] == ticket_id
+    assert entry["workflow_id"] == (f"ticket-{ticket_id}" if ticket_id else None)
+
+
 def test_formatter_includes_exception() -> None:
     try:
         raise ValueError("boom")

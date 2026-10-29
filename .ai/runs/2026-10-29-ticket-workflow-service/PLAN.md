@@ -32,7 +32,8 @@
 | 4 | 4.4 | JSON logs from uvicorn startup | inline | done | 92fa153 |
 | 5 | 5.1 | README | dispatch | done | 09f8a46 |
 | 3 | 3.4-review-fix | Adversarial scripted model through loop and workflow | inline | done | 35668e6 |
-| 5 | 5.2 | CI | dispatch:cheap | done | pending |
+| 5 | 5.2 | CI | dispatch:cheap | done | efc7135 |
+| 4 | 4.5 | Ticket IDs on access-log lines | inline | done | pending |
 | 5 | 5.3 | End-to-end verification | inline | todo | — |
 
 ## Goal
@@ -87,6 +88,8 @@ Step titles match the spec's Implementation Plan; each Step is one commit and le
 - **4.4 JSON logs from uvicorn startup** — fix forward found by the checkpoint-4 Compose smoke run: the API configured JSON logging in the lifespan, after uvicorn had already printed its plain-text startup lines. Configure logging when the production app is created instead; test it.
 
 - **3.4-review-fix Adversarial scripted model through loop and workflow** — found while verifying the README written in Step 5.1: the spec's prompt-injection defence 7 asks for an adversarial scripted model (refund on another customer's invoice, unknown action, over-limit amount) run through the real loop and workflow, and Step 3.4 had only covered those cases as rule unit tests plus T-6. Adds `tests/test_adversarial.py`.
+
+- **4.5 Ticket IDs on access-log lines** — found by the first Step 5.3 run: uvicorn access lines such as `"GET /tickets/T-2 HTTP/1.1" 200` are about a ticket but carried no `ticket_id`/`workflow_id` (FR-19). The JSON formatter now takes the ticket ID from the request path of `uvicorn.access` records.
 
 ### Phase 5 — Documentation and CI
 
