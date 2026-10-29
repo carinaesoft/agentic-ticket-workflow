@@ -214,9 +214,11 @@ flowchart LR
         wf[TicketWorkflow<br/>app/workflows/ticket.py] --> a1[decide_ticket activity]
         wf --> rules[Business rules<br/>app/domain/rules.py]
         wf --> a2[execute_action activity]
+        wf --> a3[lookup_action_result activity]
         a1 --> agent[Agent loop<br/>app/agent] --> llm[LLM adapter<br/>fake / openai / azure]
         agent --> tools[Tools and DataStore<br/>app/data]
         a2 --> helpdesk[Fake Helpdesk<br/>app/adapters/helpdesk.py]
+        a3 --> helpdesk
     end
 ```
 
@@ -238,7 +240,9 @@ it and sends signals. Temporal holds the state.
    comment if any). No answer in 24 hours: the action becomes an escalation
    (`refund approval not received within 24 hours`).
 5. **act**: activity `execute_action` sends the action to the Helpdesk. Step becomes
-   `completed`, or `failed` if the Helpdesk could not be reached.
+   `completed`, or `failed` if the Helpdesk could not be reached. Before marking it
+   `failed`, activity `lookup_action_result` asks the Helpdesk whether the action was
+   recorded anyway.
 
 ### Package layout
 
@@ -250,7 +254,7 @@ app/
   data/                store.py (read-only lookups) and the JSON reference data
   agent/               tools.py (customer-scoped tools), loop.py (agent loop), prompts.py
   adapters/            llm.py (OpenAI / Azure OpenAI), fake_llm.py, helpdesk.py (fake Helpdesk)
-  activities.py        decide_ticket, execute_action, error classification
+  activities.py        decide_ticket, execute_action, lookup_action_result, error classification
   workflows/ticket.py  TicketWorkflow
   api/                 main.py (routes), schemas.py (response envelopes),
                        request_log.py (one http_request log line per ticket request)
@@ -268,8 +272,9 @@ tests/                 unit, workflow (time skipping), API and scenario tests
 | Waiting for approval, the 24 h timer | Workflow (`wait_condition` with timeout, signal handler) | Timers and signals are Temporal features; a long wait costs nothing and survives restarts. |
 | Ticket state (`step`, decisions, result) | Workflow, served by the `status` query | Temporal already persists it; there is no second store. |
 | LLM agent loop and its tools | Activity `decide_ticket` | Network calls and model output are non-deterministic. The tools only read local data. |
-| Business rules (`validate_decision`) | Pure function called inline in the workflow | Deterministic and impossible to bypass from the activity side. The activity returns a snapshot of the reference data (`DecisionContext`: customer, their invoices, KB ids) next to the proposal, and the rules run on that snapshot. |
+| Business rules (`validate_decision`) | Pure function called inline in the workflow | Deterministic, and the workflow runs them itself, so the activity cannot skip them. They check the data the activity returned, though: the activity returns a snapshot of the reference data (`DecisionContext`: customer, their invoices, KB ids) next to the proposal, and the rules run on that snapshot. |
 | Sending the action to the Helpdesk | Activity `execute_action` | A side effect that can fail and must be retried safely. |
+| Checking whether a failed action was recorded | Activity `lookup_action_result` | Reads Helpdesk state over the network. |
 
 The whole agent loop is one activity. That keeps the workflow small; the cost is that a
 failed `decide_ticket` attempt repeats all model calls of that attempt. One activity per
@@ -516,6 +521,10 @@ Limitations:
 - Running `scripts/demo.sh` a second time on the same stack gets `duplicate: true` for every
   ticket and then times out waiting for T-2's approval. Start from an empty stack first:
   `docker compose down -v && docker compose up -d`.
+- If the 24 h timer fires between the API's status query and its signal, the API answers
+  `202` (the signal was delivered), but the workflow ignores the approval and the ticket is
+  escalated: the refund is not sent. A Workflow Update instead of query plus signal is the
+  next step.
 - While Temporal is unreachable, the Temporal library prints its own `WARN` lines (gRPC
   retries) that are not JSON.
 - The API has no authentication, the approval endpoint in particular; `reviewer` is a
