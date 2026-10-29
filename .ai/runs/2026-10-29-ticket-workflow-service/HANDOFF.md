@@ -1,10 +1,15 @@
 # Handoff — 2026-10-29-ticket-workflow-service
 
-**Last updated:** 2026-10-29T18:10:00Z
+**Last updated:** 2026-10-29T20:00:00Z
 **Branch:** feat/ticket-workflow-service
 **PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (ready for review)
 **Current phase/step:** run complete — every Tasks row done
-**Last commit:** ef8237f — docs(readme): describe how AI coding assistants were used
+**Last commit:** 4953f06 — fix(compose): stop restarting the worker after 3 failed starts
+
+## Fix run — polish
+- 5.10–5.12, 1.5, 1.6, 4.10. Gate green after every commit (ruff, ruff format, pytest 239).
+- Compose: `docker compose up -d --build` + `scripts/demo.sh` gave the same T-1…T-7 results as the README; `docker compose run --rm tests` 239 passed. Worker started with `AGENT_MAX_TURNS=9`: 4 `worker_config_error` lines (start + 3 restarts), then exited with code 2. Stack removed with `docker compose down -v`.
+- 1.6 keeps surrounding whitespace tolerated (an existing test expects `" 12 "` → `12.00`); `"4_9"`, `"+49"`, `"49."` and non-ASCII digits now escalate.
 
 ## Fix run — README accuracy
 - Docs only (plus tests/test_readme.py: the AI section is now required to be written). Gate green (ruff, ruff format, pytest 230).

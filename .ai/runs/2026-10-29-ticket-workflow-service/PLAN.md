@@ -58,6 +58,12 @@
 | 5 | 5.7 | README: example run refreshed, hard test count removed | inline | done | 770cc96 |
 | 5 | 5.8 | README: limitations completed | inline | done | fd6b8bc |
 | 5 | 5.9 | README: how AI coding assistants were used | inline | done | ef8237f |
+| 5 | 5.10 | README: AI assistants section facts corrected (error handling, money validation, log IDs) | inline | done | f0b96ad |
+| 5 | 5.11 | README: what the rules check, lookup_action_result in the architecture, timer/approval race | inline | done | 5bacdbf |
+| 5 | 5.12 | Spec: default model gpt-6-luna, change noted | inline | done | fb90bbb |
+| 1 | 1.5 | AGENT_MAX_TURNS capped at 8 (8 x 20 s fits the 180 s decide timeout) | inline | done | 99b054b |
+| 1 | 1.6 | Refund amounts as strings: plain decimal notation only ("4_9" escalates) | inline | done | 012627d |
+| 4 | 4.10 | Compose: worker restart: on-failure:3 instead of an endless restart loop | inline | done | 4953f06 |
 
 ## Goal
 
