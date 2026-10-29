@@ -6,6 +6,9 @@
 **Current phase/step:** run complete — every Tasks row done
 **Last commit:** 2274371 — fix(rules): allow refunds only from paid invoices (plus the 24 h test commit)
 
+## Fix run — API, logs, Compose
+- 4.6: API connects to Temporal on first use (any connect failure → 503 `workflow service unavailable`, retried next request); a status query failing with FAILED_PRECONDITION or DEADLINE_EXCEEDED → 503 `no worker available to answer`. No error-text matching.
+
 ## What just happened
 - Correctness fixes after QA (3.3-qa-fix, 1.3-qa-fix, 3.3-qa-fix-2): an action applied in the last `execute_action` attempt is reconciled via `lookup_action_result` instead of failing; refunds only from `paid` invoices; the 24 h approval test proves the timer (still waiting at 23 h 59 min, ≥ 24 h workflow time to escalation). Gate green, pytest 195.
 - All spec Steps 1.1–5.3 landed, plus fix-forward Steps 4.4, 4.5, 3.4-review-fix and review fixes 1.3/2.2/4.1/4.4-review-fix.

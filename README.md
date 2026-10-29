@@ -126,7 +126,7 @@ Status codes:
 | `POST /tickets/{id}/approval` | `202` | Approval or rejection delivered. |
 | `POST /tickets/{id}/approval` | `409` | Ticket is not awaiting approval: `{"detail": "ticket is not awaiting approval", "step": "..."}`. Also returned when the workflow closes between the status check and the signal. |
 | `POST /tickets/{id}/approval` | `404` / `422` | Unknown ticket / invalid body (`reviewer` is required). |
-| any | `503` | Temporal unreachable (`workflow service unavailable`), no worker answered the query within 10 s (`no worker available to answer`), or the query itself failed (`ticket state cannot be read right now`). |
+| any | `503` | Temporal unreachable (`workflow service unavailable`), no worker is polling to answer the status query, or none answered within 10 s (`no worker available to answer`), or the query itself failed (`ticket state cannot be read right now`). |
 
 `step` is one of `deciding`, `validating`, `awaiting_approval`, `acting`, `completed`,
 `failed`.

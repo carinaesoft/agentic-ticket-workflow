@@ -236,24 +236,57 @@ class UnreachableClient:
     ("error", "detail"),
     [
         (RPCError("unavailable", RPCStatusCode.UNAVAILABLE, b""), "workflow service unavailable"),
-        (RuntimeError("Failed client connect: refused"), "workflow service unavailable"),
+        (
+            RPCError("no poller seen", RPCStatusCode.FAILED_PRECONDITION, b""),
+            "no worker available to answer",
+        ),
         (
             RPCError("deadline", RPCStatusCode.DEADLINE_EXCEEDED, b""),
             "no worker available to answer",
         ),
     ],
-    ids=["rpc-unavailable", "connect-failed", "no-worker"],
+    ids=["rpc-unavailable", "no-worker-precondition", "no-worker-deadline"],
 )
-async def test_temporal_failures_are_503(error, detail) -> None:
+async def test_temporal_failures_on_query_are_503(error, detail) -> None:
     app = create_app(client=UnreachableClient(error), settings=Settings())
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as http:
         get = await http.get("/tickets/T-1")
-        assert (get.status_code, get.json()) == (503, {"detail": detail})
-        if detail != "no worker available to answer":
-            post = await http.post("/tickets", json=new_ticket())
-            assert (post.status_code, post.json()) == (503, {"detail": detail})
+    assert (get.status_code, get.json()) == (503, {"detail": detail})
+
+
+async def test_start_rpc_unavailable_is_503() -> None:
+    error = RPCError("unavailable", RPCStatusCode.UNAVAILABLE, b"")
+    app = create_app(client=UnreachableClient(error), settings=Settings())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as http:
+        post = await http.post("/tickets", json=new_ticket())
+    assert (post.status_code, post.json()) == (503, {"detail": "workflow service unavailable"})
+
+
+async def test_temporal_connect_failure_is_503_and_retried(monkeypatch) -> None:
+    attempts: list[str] = []
+
+    async def refuse(address, **kwargs):
+        attempts.append(address)
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr("app.api.main.Client.connect", refuse)
+    settings = Settings.model_validate({"temporal_address": "temporal.invalid:7233"})
+    app = create_app(client=None, settings=settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as http:
+        get = await http.get("/tickets/T-1")
+        post = await http.post("/tickets", json=new_ticket())
+    for response in (get, post):
+        assert (response.status_code, response.json()) == (
+            503,
+            {"detail": "workflow service unavailable"},
+        )
+    assert attempts == ["temporal.invalid:7233"] * 2  # no client cached after a failure
 
 
 def test_production_app_configures_json_logging_at_creation() -> None:

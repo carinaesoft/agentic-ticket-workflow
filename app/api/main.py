@@ -1,14 +1,14 @@
 """FastAPI application: thin handlers translating HTTP into Temporal start / query / signal.
 
-Run with ``uvicorn app.api.main:app``. The Temporal client is created lazily in the
-lifespan, so the API starts even while Temporal is down and answers ``503`` until it is back.
+Run with ``uvicorn app.api.main:app``. The Temporal client connects on the first request
+that needs it, so the API starts even while Temporal is down and answers ``503`` until it is
+back.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import AsyncIterator, Awaitable
-from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Annotated
 
@@ -48,32 +48,43 @@ TicketId = Annotated[str, Path(pattern=TICKET_ID_PATTERN)]
 
 
 def create_app(client: Client | None = None, settings: Settings | None = None) -> FastAPI:
-    """Build the app. Tests inject a client; in production the lifespan connects one."""
-
-    @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        if app.state.client is None:
-            app.state.client = await Client.connect(
-                app.state.settings.temporal_address,
-                namespace=app.state.settings.temporal_namespace,
-                data_converter=pydantic_data_converter,
-                lazy=True,
-            )
-        yield
-
-    app = FastAPI(title="Ticket workflow service", lifespan=lifespan)
+    """Build the app. Tests inject a client; in production the first request connects one."""
+    app = FastAPI(title="Ticket workflow service")
     app.state.client = client
+    app.state.connect_lock = asyncio.Lock()
     app.state.settings = settings or Settings()
     if client is None:
-        # At import time, so uvicorn's own startup lines are JSON too (the lifespan runs
-        # after them).
+        # At import time, so uvicorn's own startup lines are JSON too.
         configure_logging(app.state.settings.log_level)
     _add_routes(app)
     return app
 
 
-def get_client(request: Request) -> Client:
-    return request.app.state.client
+async def get_client(request: Request) -> Client:
+    """The shared Temporal client, connecting it on first use.
+
+    Any failure to connect is a Temporal connection failure and answers ``503``; the next
+    request tries again. Once connected, the client reconnects by itself and a server outage
+    surfaces as an ``RPCError`` instead.
+    """
+    state = request.app.state
+    if state.client is None:
+        async with state.connect_lock:
+            if state.client is None:
+                state.client = await _connect(state.settings)
+    return state.client
+
+
+async def _connect(settings: Settings) -> Client:
+    try:
+        return await Client.connect(
+            settings.temporal_address,
+            namespace=settings.temporal_namespace,
+            data_converter=pydantic_data_converter,
+        )
+    except Exception as err:
+        log.error("temporal_connect_failed", extra={"error": str(err)})
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE) from err
 
 
 def get_settings(request: Request) -> Settings:
@@ -104,15 +115,13 @@ def _add_routes(app: FastAPI) -> None:
         )
         response.headers["Location"] = f"/tickets/{ticket.ticket_id}"
         try:
-            await _temporal(
-                client.start_workflow(
-                    TicketWorkflow.run,
-                    ticket,
-                    id=workflow_id,
-                    task_queue=settings.temporal_task_queue,
-                    id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
-                    id_conflict_policy=WorkflowIDConflictPolicy.FAIL,
-                )
+            await client.start_workflow(
+                TicketWorkflow.run,
+                ticket,
+                id=workflow_id,
+                task_queue=settings.temporal_task_queue,
+                id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
+                id_conflict_policy=WorkflowIDConflictPolicy.FAIL,
             )
         except WorkflowAlreadyStartedError:
             # Temporal guarantees one workflow per ID; the second body is ignored.
@@ -121,6 +130,8 @@ def _add_routes(app: FastAPI) -> None:
             return TicketAccepted(
                 ticket_id=ticket.ticket_id, workflow_id=workflow_id, duplicate=True
             )
+        except RPCError as err:
+            raise _rpc_http_error(err) from err
         log.info("workflow_started", extra=extra)
         return TicketAccepted(ticket_id=ticket.ticket_id, workflow_id=workflow_id, duplicate=False)
 
@@ -176,33 +187,28 @@ def _not_awaiting(current: WorkflowStatus, extra: dict) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=body.model_dump())
 
 
+# A query on a workflow whose task queue has no worker fails with FAILED_PRECONDITION
+# ("no poller seen") or, while the server still waits for one, runs into the RPC deadline.
+_NO_WORKER_STATUSES = (RPCStatusCode.FAILED_PRECONDITION, RPCStatusCode.DEADLINE_EXCEEDED)
+
+
 async def _query_status(handle: WorkflowHandle) -> WorkflowStatus:
     try:
-        return await _temporal(handle.query(TicketWorkflow.status, rpc_timeout=QUERY_TIMEOUT))
+        return await handle.query(TicketWorkflow.status, rpc_timeout=QUERY_TIMEOUT)
+    except RPCError as err:
+        if err.status in _NO_WORKER_STATUSES:
+            log.error("workflow_query_no_worker", extra={"workflow_id": handle.id})
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_WORKER) from err
+        raise _rpc_http_error(err) from err
     except (WorkflowQueryFailedError, WorkflowQueryRejectedError) as err:
         # The formatter derives ticket_id from the ``ticket-…`` workflow ID.
         log.error("workflow_query_failed", extra={"workflow_id": handle.id, "error": str(err)})
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, QUERY_FAILED) from err
 
 
-async def _temporal[T](call: Awaitable[T]) -> T:
-    """Await a Temporal client call, mapping service failures to HTTP errors."""
-    try:
-        return await call
-    except RPCError as err:
-        raise _rpc_http_error(err) from err
-    except RuntimeError as err:
-        # A lazy client that cannot reach the server raises "Failed client connect".
-        if "client connect" not in str(err):
-            raise
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE) from err
-
-
 def _rpc_http_error(err: RPCError) -> HTTPException:
     if err.status == RPCStatusCode.NOT_FOUND:
         return HTTPException(status.HTTP_404_NOT_FOUND, "ticket not found")
-    if err.status == RPCStatusCode.DEADLINE_EXCEEDED:
-        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, NO_WORKER)
     return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE)
 
 
