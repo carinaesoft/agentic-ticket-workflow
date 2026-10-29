@@ -99,6 +99,13 @@ def test_formatter_lifts_activity_attempt() -> None:
     assert entry["activity"] == "execute_action"
 
 
+def test_formatter_derives_ticket_id_from_workflow_id() -> None:
+    record = make_record(temporal_activity={"workflow_id": "ticket-T-5", "attempt": 2})
+    entry = json.loads(JsonFormatter().format(record))
+    assert (entry["ticket_id"], entry["workflow_id"]) == ("T-5", "ticket-T-5")
+    assert json.loads(JsonFormatter().format(make_record()))["ticket_id"] is None
+
+
 def test_formatter_includes_exception() -> None:
     try:
         raise ValueError("boom")

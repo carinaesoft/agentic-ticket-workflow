@@ -24,8 +24,8 @@
 | 2 | 2.4 | Real adapter | inline | done | 82deb65 |
 | 3 | 3.1 | Fake Helpdesk | inline | done | f6957ae |
 | 3 | 3.2 | Activities | inline | done | 6546eba |
-| 3 | 3.3 | Workflow | inline | done | pending |
-| 3 | 3.4 | Worker and sample scenarios | inline | todo | — |
+| 3 | 3.3 | Workflow | inline | done | 2523651 |
+| 3 | 3.4 | Worker and sample scenarios | inline | done | pending |
 | 4 | 4.1 | API | inline | todo | — |
 | 4 | 4.2 | Containers | inline | todo | — |
 | 4 | 4.3 | Demo script | inline | todo | — |

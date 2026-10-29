@@ -17,11 +17,12 @@ from typing import Any
 # Attributes every LogRecord has; anything else on a record is an ``extra`` field.
 _STANDARD_ATTRS = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime", "taskName"}
 _TEMPORAL_EXTRAS = ("temporal_workflow", "temporal_activity")
+_WORKFLOW_PREFIX = "ticket-"
 
 
 def workflow_id_for(ticket_id: str) -> str:
     """The deterministic workflow ID of a ticket."""
-    return f"ticket-{ticket_id}"
+    return f"{_WORKFLOW_PREFIX}{ticket_id}"
 
 
 def ticket_extra(ticket_id: str, workflow_id: str | None = None, **fields: Any) -> dict[str, Any]:
@@ -51,6 +52,11 @@ class JsonFormatter(logging.Formatter):
                     entry["attempt"] = info["attempt"]
                 if "activity_type" in info:
                     entry["activity"] = info["activity_type"]
+        workflow_id = entry["workflow_id"]
+        if entry["ticket_id"] is None and str(workflow_id).startswith(_WORKFLOW_PREFIX):
+            # Workflow IDs are ``ticket-{ticket_id}``, so SDK log lines about a ticket's
+            # workflow (e.g. activity retries) still name the ticket.
+            entry["ticket_id"] = workflow_id.removeprefix(_WORKFLOW_PREFIX)
         for key, value in record.__dict__.items():
             if key not in _STANDARD_ATTRS and key not in _TEMPORAL_EXTRAS and key not in entry:
                 entry[key] = value
