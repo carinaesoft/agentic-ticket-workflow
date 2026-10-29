@@ -96,6 +96,17 @@ async def test_sample_tickets_end_to_end(env, scenario, caplog) -> None:
     def action(ticket_id: str) -> dict:
         return results[ticket_id].decision.action.model_dump()
 
+    triage = {t: (r.decision.category.value, r.decision.priority.value) for t, r in results.items()}
+    assert triage == {
+        "T-1": ("account", "normal"),
+        "T-2": ("billing", "high"),
+        "T-3": ("technical", "urgent"),
+        "T-4": ("account", "high"),
+        "T-5": ("other", "low"),
+        "T-6": ("billing", "high"),
+        "T-7": ("other", "normal"),
+    }
+
     assert action("T-1")["kind"] == "reply" and action("T-1")["article_ids"] == ["KB-1"]
 
     assert action("T-2") == {
@@ -109,11 +120,15 @@ async def test_sample_tickets_end_to_end(env, scenario, caplog) -> None:
 
     assert action("T-3") == {"kind": "escalate", "reason": "outage reported by enterprise customer"}
     assert action("T-4")["kind"] == "reply" and action("T-4")["article_ids"] == ["KB-4"]
+    assert "INV-4001" in action("T-4")["message"]
     assert action("T-5") == {"kind": "close", "reason": "not a support request"}
 
     assert results["T-6"].proposed_decision.action.kind == "refund"
     assert action("T-6")["kind"] == "escalate"
-    assert action("T-6")["reason"].startswith("decision rejected by rules: refund amount 5000.00")
+    assert action("T-6")["reason"] == (
+        "decision rejected by rules: refund amount 5000.00 exceeds invoice INV-1001 amount 49.00"
+    )
+    assert results["T-6"].approval is None
 
     assert results["T-7"].proposed_decision is None
     assert action("T-7") == {"kind": "escalate", "reason": "unknown customer C-999"}

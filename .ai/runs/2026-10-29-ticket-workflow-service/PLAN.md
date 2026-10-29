@@ -64,6 +64,8 @@
 | 1 | 1.5 | AGENT_MAX_TURNS capped at 8 (8 x 20 s fits the 180 s decide timeout) | inline | done | 99b054b |
 | 1 | 1.6 | Refund amounts as strings: plain decimal notation only ("4_9" escalates) | inline | done | 012627d |
 | 4 | 4.10 | Compose: worker restart: on-failure:3 instead of an endless restart loop | inline | done | 4953f06 |
+| 1 | 1.7 | Reference data and sample tickets replaced 1:1 with the source records; golden test | inline | done | da8cede |
+| 2 | 2.5 | Fake model keyword rules fitted to the source tickets and KB | inline | done | pending |
 
 ## Goal
 

@@ -4,8 +4,12 @@ A keyword-rule stand-in for a real model that goes through the same agent loop: 
 calls tools (one per turn), reads their results back from the message history, and only
 then answers with a decision JSON. It needs no key and no network.
 
+Its keyword rules are written for the sample tickets in ``samples/tickets.json`` and the KB
+in ``app/data/kb.json``; anything else falls through to "close".
+
 It is deliberately naive: a refund amount and invoice stated in the ticket are taken at face
-value. Stopping a manipulative ticket is the job of the rules, not of the model.
+value, and a refund without a stated invoice goes to the customer's first paid invoice.
+Stopping a manipulative ticket is the job of the rules, not of the model.
 """
 
 from __future__ import annotations
@@ -18,9 +22,10 @@ from typing import Any
 from app.adapters.llm import Message, ModelReply, ToolCall
 from app.agent.prompts import ENVELOPE_TAG
 
-_PASSWORD = ("password", "log in", "login", "sign in")
+_PASSWORD = ("password", "log in", "login", "sign in", "get into my account")
 _REFUND = ("refund", "charged twice", "double charge")
-_OUTAGE = ("outage", " down", "503")
+_DUPLICATE = ("charged twice", "double charge")
+_OUTAGE = ("outage", " down", "returned errors", "503")
 _INVOICE_ID = re.compile(r"\bINV-\d+\b")
 _AMOUNT = re.compile(r"(\d+(?:\.\d+)?)\s*(?:EUR|€)", re.IGNORECASE)
 
@@ -72,8 +77,9 @@ def _decide(
 ) -> dict[str, Any]:
     article_ids = [a["article_id"] for a in articles[:1]]
     if refund:
-        paid = sorted((i for i in invoices if i["status"] == "paid"), key=lambda i: i["month"])
-        invoice_id = stated_invoice or (paid[-1]["invoice_id"] if paid else None)
+        paid = [i for i in invoices if i["status"] == "paid"]
+        invoice_id = stated_invoice or _duplicate_charge(paid, text)
+        invoice_id = invoice_id or (paid[0]["invoice_id"] if paid else None)
         amount = stated_amount or next(
             (i["amount_eur"] for i in invoices if i["invoice_id"] == invoice_id), None
         )
@@ -87,22 +93,35 @@ def _decide(
         if customer.get("plan") == "enterprise":
             reason = "outage reported by enterprise customer"
             return _decision("technical", "urgent", {"kind": "escalate", "reason": reason})
-        message = "We are looking into the problem; the status page has live updates."
+        message = "We are looking into the problem; current outages are on the status page."
         return _decision("technical", "high", _reply(message, article_ids))
     if customer.get("status") == "suspended":
         overdue = [i["invoice_id"] for i in invoices if i["status"] == "overdue"]
         message = (
             f"Your account is suspended because invoice {', '.join(overdue)} is overdue. "
-            "Paying it from the billing page restores access within a few minutes."
+            "Pay the invoice to unlock the account."
         )
         return _decision("account", "high", _reply(message, article_ids))
     if _has(text, _PASSWORD):
         message = (
-            "You can reset your password with the 'Forgot password' link on the sign-in "
-            "page; the reset email arrives within a few minutes."
+            "Open the sign-in page, choose 'Forgot password' and follow the link we email "
+            "you. The link works for 30 minutes."
         )
         return _decision("account", "normal", _reply(message, article_ids))
     return _decision("other", "low", {"kind": "close", "reason": "not a support request"})
+
+
+def _duplicate_charge(paid: list[dict[str, Any]], text: str) -> str | None:
+    """The extra charge: the later of two paid invoices for the same month and amount."""
+    if not _has(text, _DUPLICATE):
+        return None
+    seen: set[tuple[str, str]] = set()
+    for invoice in sorted(paid, key=lambda i: (i["month"], i["invoice_id"])):
+        key = (invoice["month"], invoice["amount_eur"])
+        if key in seen:
+            return invoice["invoice_id"]
+        seen.add(key)
+    return None
 
 
 def _decision(category: str, priority: str, action: dict[str, Any]) -> dict[str, Any]:
@@ -117,7 +136,7 @@ def _kb_query(text: str, refund: bool, suspended: bool) -> str | None:
     if refund:
         return "refund"
     if _has(text, _OUTAGE):
-        return "outage"
+        return "outages"
     if suspended:
         return "suspended"
     if _has(text, _PASSWORD):
