@@ -3,6 +3,7 @@ import logging
 import sys
 
 import pytest
+from pydantic import ValidationError
 
 from app.config import Settings
 from app.logging import (
@@ -53,6 +54,17 @@ def test_env_overrides_and_empty_values_count_as_unset(clean_env) -> None:
     assert settings.openai_api_key is None
     assert settings.helpdesk_seed is None
     assert settings.agent_max_turns == 3
+
+
+@pytest.mark.parametrize(("value", "valid"), [("1", True), ("8", True), ("0", False), ("9", False)])
+def test_agent_max_turns_bounds(clean_env, value: str, valid: bool) -> None:
+    # 8 turns x 20 s request timeout must fit inside the 180 s decide_ticket timeout.
+    clean_env.setenv("AGENT_MAX_TURNS", value)
+    if valid:
+        assert Settings().agent_max_turns == int(value)
+    else:
+        with pytest.raises(ValidationError):
+            Settings()
 
 
 def test_secret_is_not_printed(clean_env) -> None:

@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     azure_openai_deployment: str | None = None
     azure_openai_api_version: str | None = None
 
-    agent_max_turns: int = Field(default=6, ge=1)
+    # Each turn is one model request with a 20 s timeout; 8 turns (160 s) fit inside the
+    # 180 s start-to-close timeout of ``decide_ticket``.
+    agent_max_turns: int = Field(default=6, ge=1, le=8)
     agent_max_parse_retries: int = Field(default=2, ge=0)
 
     helpdesk_failure_rate: float = Field(default=0.2, ge=0.0, le=1.0)
