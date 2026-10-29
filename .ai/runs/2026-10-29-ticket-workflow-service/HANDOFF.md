@@ -1,10 +1,18 @@
 # Handoff — 2026-10-29-ticket-workflow-service
 
-**Last updated:** 2026-10-29T17:20:00Z
+**Last updated:** 2026-10-29T17:40:00Z
 **Branch:** feat/ticket-workflow-service
 **PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (ready for review)
 **Current phase/step:** run complete — every Tasks row done
-**Last commit:** eeae1b6 — fix(api): tell a missing worker from an unreachable Temporal on query timeout
+**Last commit:** 16ea666 — docs(readme): describe the real-model path and its documented parameters
+
+## Fix run — LLM adapter and layers
+- Gate green after every commit (ruff, ruff format, pytest 230). No live model call: there is no API key; the adapter is tested with a fake client only.
+- 3.6: requests carry model, messages, tools, reasoning_effort="none" (OpenAI and Azure); temperature, tool_choice and response_format dropped per the official docs (links in README). Azure uses the v1 API unless a dated AZURE_OPENAI_API_VERSION (>= 2024-12-01-preview) is set.
+- 3.7: provider 400/401/403/404/409/422 → non-retryable `LLMRequestRejected` naming the status; 408/429/5xx/timeouts/connection errors retried.
+- 3.8: DecideOutput/ActionRequest moved to app.domain.models; fresh-interpreter test: importing app.api.main loads no openai, app.activities, app.adapters or app.agent.
+- 3.9: Settings validation error → one `worker_config_error` JSON line (no values echoed), exit 2.
+- 5.4: README states the real model was not run live, how to enable it, and the official sources.
 
 ## Fix run — API, logs, Compose
 - Gate green after every push (ruff, ruff format, pytest 212). Compose verified live with `HELPDESK_FAILURE_RATE=0.7` from the shell (worker logged 0.7); `docker compose logs api`: no uvicorn.access lines, every `http_request` line has ticket_id and workflow_id; stack removed with `docker compose down -v`.

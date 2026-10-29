@@ -48,6 +48,11 @@
 | 4 | 4.9 | Tests container always rebuilds (pull_policy: build) | inline | done | 849fb85 |
 | 3 | 3.5 | Worker config error as one JSON error line, exit code 2 | inline | done | 2035f6a |
 | 4 | 4.6-fix | Query timeout tells no worker from Temporal down via a health check | inline | done | eeae1b6 |
+| 3 | 3.6 | LLM request sends only documented parameters per provider; Azure v1 API by default | inline | done | b337881 |
+| 3 | 3.7 | Provider 400/401/403/404/409/422 not retried; 408/429/5xx/timeout/network retried | inline | done | c983b21 |
+| 3 | 3.8 | DecideOutput and ActionRequest in app.domain.models; API process does not load openai | inline | done | 30166f0 |
+| 3 | 3.9 | Invalid worker settings as one JSON error line, exit code 2 | inline | done | 63852c7 |
+| 5 | 5.4 | README: real model not run live, documented parameters with links, how to enable | inline | done | 16ea666 |
 
 ## Goal
 
