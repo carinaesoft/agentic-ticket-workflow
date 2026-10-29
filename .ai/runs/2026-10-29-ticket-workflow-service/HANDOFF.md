@@ -1,10 +1,15 @@
 # Handoff — 2026-10-29-ticket-workflow-service
 
-**Last updated:** 2026-10-29T17:40:00Z
+**Last updated:** 2026-10-29T18:10:00Z
 **Branch:** feat/ticket-workflow-service
 **PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (ready for review)
 **Current phase/step:** run complete — every Tasks row done
-**Last commit:** 16ea666 — docs(readme): describe the real-model path and its documented parameters
+**Last commit:** ef8237f — docs(readme): describe how AI coding assistants were used
+
+## Fix run — README accuracy
+- Docs only (plus tests/test_readme.py: the AI section is now required to be written). Gate green (ruff, ruff format, pytest 230).
+- 5.5–5.9: working host test commands (uv pip; venv + pip), statements checked against code, example run refreshed, limitations completed, AI assistants section added.
+- Every README command block run as written in a fresh clone: Quick start, the three endpoints, both host test variants, `docker compose run --rm tests`; stack removed with `docker compose down -v`.
 
 ## Fix run — LLM adapter and layers
 - Gate green after every commit (ruff, ruff format, pytest 230). No live model call: there is no API key; the adapter is tested with a fake client only.

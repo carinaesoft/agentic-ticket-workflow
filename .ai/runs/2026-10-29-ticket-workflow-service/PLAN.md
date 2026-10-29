@@ -53,6 +53,11 @@
 | 3 | 3.8 | DecideOutput and ActionRequest in app.domain.models; API process does not load openai | inline | done | 30166f0 |
 | 3 | 3.9 | Invalid worker settings as one JSON error line, exit code 2 | inline | done | 63852c7 |
 | 5 | 5.4 | README: real model not run live, documented parameters with links, how to enable | inline | done | 16ea666 |
+| 5 | 5.5 | README: host test commands that work (uv pip; venv + pip) | inline | done | ffb3bf2 |
+| 5 | 5.6 | README: statements aligned with code (received, AGENT_MAX_*, KB check, worker restart, pull_policy) | inline | done | b7e576a |
+| 5 | 5.7 | README: example run refreshed, hard test count removed | inline | done | 770cc96 |
+| 5 | 5.8 | README: limitations completed | inline | done | fd6b8bc |
+| 5 | 5.9 | README: how AI coding assistants were used | inline | done | ef8237f |
 
 ## Goal
 

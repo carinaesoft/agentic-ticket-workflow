@@ -44,3 +44,6 @@
 
 ## 2026-10-29T16:00:29Z — run finished
 - PR: https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 — ready for review, Status: complete, labels merge-queue/feature/needs-qa/priority-medium/risk-high. CI green on 6227bbc. Not merged (left to a human after QA).
+
+## 2026-10-29T18:10:00Z — README accuracy run
+- Steps 5.5–5.9 done; every README command block verified in a fresh clone; gate green (pytest 230). The README AI section skeleton test now requires the written section.
