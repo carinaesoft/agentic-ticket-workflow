@@ -58,7 +58,8 @@ docker compose run --rm tests
 ```
 
 The `tests` service uses `network_mode: none`; the test server is downloaded and cached in
-the image at build time.
+the image at build time. `pull_policy: build` rebuilds the image on every run, so it tests
+the current code.
 
 The validation gate, run in this order:
 
@@ -138,8 +139,8 @@ Status codes:
 | `POST /tickets/{id}/approval` | `404` / `422` | Unknown ticket / invalid body (`reviewer` is required). |
 | any | `503` | Temporal unreachable (`workflow service unavailable`), no worker is polling to answer the status query, or none answered within 10 s (`no worker available to answer`), or the query itself failed (`ticket state cannot be read right now`). |
 
-`step` is one of `deciding`, `validating`, `awaiting_approval`, `acting`, `completed`,
-`failed`.
+`step` is one of `received`, `deciding`, `validating`, `awaiting_approval`, `acting`,
+`completed`, `failed`.
 
 ### Example run
 
@@ -222,7 +223,7 @@ it and sends signals. Temporal holds the state.
 
 ### Ticket flow
 
-1. `POST /tickets` starts workflow `ticket-{ticket_id}`.
+1. `POST /tickets` starts workflow `ticket-{ticket_id}` (step `received`).
 2. **decide**: activity `decide_ticket` runs the agent loop. The model calls tools
    (`get_customer`, `get_invoices`, `search_kb`) and returns a JSON decision: category,
    priority and one action.
@@ -248,7 +249,8 @@ app/
   adapters/            llm.py (OpenAI / Azure OpenAI), fake_llm.py, helpdesk.py (fake Helpdesk)
   activities.py        decide_ticket, execute_action, error classification
   workflows/ticket.py  TicketWorkflow
-  api/                 main.py (routes), schemas.py (response envelopes)
+  api/                 main.py (routes), schemas.py (response envelopes),
+                       request_log.py (one http_request log line per ticket request)
   worker.py            worker entrypoint
 samples/tickets.json   sample tickets T-1 ... T-7
 scripts/               demo.sh, warm_test_server.py
@@ -272,8 +274,11 @@ tool call is listed under next steps.
 
 ## Retries, timeouts and duplicates
 
-Numbers below are constants in `app/workflows/ticket.py` and `app/adapters/llm.py`. They are
-not read from the environment, so a configuration change cannot break workflow replay.
+Timeouts and retry policies are constants in `app/workflows/ticket.py` and
+`app/adapters/llm.py`. They are not read from the environment, so a configuration change
+cannot break workflow replay. The agent loop limits are the exception: `AGENT_MAX_TURNS` and
+`AGENT_MAX_PARSE_RETRIES` come from the environment, and they only act inside the
+`decide_ticket` activity.
 
 | | `decide_ticket` | `execute_action` |
 |---|---|---|
@@ -283,14 +288,14 @@ not read from the environment, so a configuration change cannot break workflow r
 
 - The OpenAI client is created with `max_retries=0` and a 20 s request timeout. Temporal's
   retry policy is the only retry layer, so retries are not multiplied.
-- The agent loop allows 6 turns (`AGENT_MAX_TURNS`) and 2 re-prompts when the model's final
-  answer is not valid JSON for the decision schema (`AGENT_MAX_PARSE_RETRIES`).
+- By default the agent loop allows 6 turns (`AGENT_MAX_TURNS`) and 2 re-prompts when the
+  model's final answer is not valid JSON for the decision schema (`AGENT_MAX_PARSE_RETRIES`).
 - **Errors that are not retried** (`ApplicationError(non_retryable=True)`, raised in
   `app/activities.py`):
   - `UnknownCustomer`, when the ticket's customer is not in the data (T-7).
   - `AgentOutputInvalid`, when the answer is still unreadable after the re-prompts
     (raised by the loop, converted in `decide_ticket`).
-  - `AgentTurnLimit`, when there is no decision after 6 turns.
+  - `AgentTurnLimit`, when there is no decision after `AGENT_MAX_TURNS` turns.
   - `LLMConfigError`, for missing provider settings.
   - `LLMRequestRejected`, when the model provider answers 400, 401, 403, 404, 409 or 422;
     the escalation reason names the status, for example
@@ -341,8 +346,9 @@ approval gate do not depend on the model behaving.
    cannot read another customer's invoices.
 4. **Refund checks.** The invoice must exist, belong to the ticket's customer and have the
    status `paid` (otherwise, for example, `invoice INV-4001 is not paid (status: overdue)`),
-   and the amount must be above zero and not more than the invoice amount. Replies must cite
-   existing KB articles; categories, priorities and action kinds must be in the allowed sets.
+   and the amount must be above zero and not more than the invoice amount. Every KB article a
+   reply cites must exist (a reply may cite none); categories, priorities and action kinds
+   must be in the allowed sets.
 5. **Untrusted envelope.** The subject and body are placed inside an `<untrusted_ticket>`
    block and the system prompt says the content is data, not instructions. The ticket cannot
    close the block: any `<untrusted_ticket` or `</untrusted_ticket` in the text, in any letter
@@ -387,7 +393,9 @@ them without secrets.
 | `LOG_LEVEL` | `INFO` | Log level (JSON lines on stdout). |
 
 Invalid settings (for example `HELPDESK_FAILURE_RATE=2`) and missing provider settings stop the
-worker at startup with one JSON error line naming the variables, and exit code 2.
+worker at startup with one JSON error line naming the variables, and exit code 2. Under
+Compose (`restart: unless-stopped`) the worker container then restarts and logs that line
+again until the setting is fixed.
 
 **Default model.** The default `OPENAI_MODEL` is `gpt-6-luna`, not `gpt-4o-mini`. OpenAI's
 deprecations page (checked 2026-10-29) lists `gpt-4o-mini` for removal on 2027-01-14 and
