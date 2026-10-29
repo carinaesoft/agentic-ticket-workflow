@@ -31,8 +31,8 @@
 | 4 | 4.3 | Demo script | inline | done | 0dadd1e |
 | 4 | 4.4 | JSON logs from uvicorn startup | inline | done | 92fa153 |
 | 5 | 5.1 | README | dispatch | done | 09f8a46 |
-| 3 | 3.4-review-fix | Adversarial scripted model through loop and workflow | inline | done | pending |
-| 5 | 5.2 | CI | dispatch:cheap | todo | — |
+| 3 | 3.4-review-fix | Adversarial scripted model through loop and workflow | inline | done | 35668e6 |
+| 5 | 5.2 | CI | dispatch:cheap | done | pending |
 | 5 | 5.3 | End-to-end verification | inline | todo | — |
 
 ## Goal
