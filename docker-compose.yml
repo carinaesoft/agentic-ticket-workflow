@@ -58,12 +58,14 @@ services:
     <<: *app
     command: ["python", "-m", "app.worker"]
 
-  # docker compose run --rm tests  — the whole suite, offline and keyless
+  # docker compose run --rm tests  — the whole suite, offline and keyless. pull_policy: build
+  # rebuilds the image on every run (layer cache keeps it fast), so it tests the current code.
   tests:
     build:
       context: .
       target: tests
     image: agentic-ticket-workflow:tests
+    pull_policy: build
     profiles: ["tests"]
     network_mode: none
     command: ["pytest", "-p", "no:cacheprovider"]

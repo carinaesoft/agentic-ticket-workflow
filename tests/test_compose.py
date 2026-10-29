@@ -35,3 +35,8 @@ def test_compose_defaults_match_settings_and_hold_no_secrets(monkeypatch) -> Non
             assert str(getattr(defaults, name.lower())) == value, name
         else:
             assert getattr(defaults, name.lower()) is None, name
+
+
+def test_tests_service_rebuilds_on_every_run() -> None:
+    tests_service = COMPOSE.read_text().split("\n  tests:\n", 1)[1]
+    assert "\n    pull_policy: build\n" in tests_service
