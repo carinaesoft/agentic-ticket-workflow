@@ -483,10 +483,23 @@ Assumptions made where requirements were open:
 
 Limitations:
 
-- Idempotency of the fake Helpdesk is in memory, per worker process.
-- The Temporal dev server in Compose does not persist data across `docker compose down`, and
-  its retention bounds how long duplicate detection works.
-- The approval endpoint has no authentication; `reviewer` is a free-text name.
+- The fake Helpdesk keeps its idempotency keys and results in the memory of one worker
+  process: a worker restart loses them, and `lookup_action_result` then finds nothing.
+- Its `HD-xxxxx` references start again from `HD-00001` after a worker restart.
+- The refund limit is checked per ticket against the invoice amount, not as a sum across
+  tickets: two tickets can each get a full refund of the same invoice (each still needs an
+  approval).
+- A ticket that ends with `step: failed` shows as `Completed` in Temporal, because the
+  workflow returns its status instead of raising.
+- Nothing survives `docker compose down`: the Temporal dev server in Compose keeps no data,
+  and its retention bounds how long duplicate detection works.
+- Running `scripts/demo.sh` a second time on the same stack gets `duplicate: true` for every
+  ticket and then times out waiting for T-2's approval. Start from an empty stack first:
+  `docker compose down -v && docker compose up -d`.
+- While Temporal is unreachable, the Temporal library prints its own `WARN` lines (gRPC
+  retries) that are not JSON.
+- The API has no authentication, the approval endpoint in particular; `reviewer` is a
+  free-text name.
 - The fake model guarantees the same message shape as a real one, not the same judgement.
   The real-model path has not been run against the live API.
 - Changing the order of workflow steps later needs `workflow.patched` for running
