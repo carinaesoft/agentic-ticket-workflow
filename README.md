@@ -30,9 +30,19 @@ Never commit a filled-in `.env`.
 
 ## Running the tests
 
+Python 3.12 or later. With [uv](https://docs.astral.sh/uv/):
+
 ```bash
-uv venv && source .venv/bin/activate     # or: python3.12 -m venv .venv
-pip install -e ".[dev]"                  # Python 3.12+
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+pytest
+```
+
+Without uv (on Debian/Ubuntu, `python3 -m venv` needs the `python3-venv` package):
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 pytest
 ```
 
