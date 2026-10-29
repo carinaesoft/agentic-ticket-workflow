@@ -1,10 +1,15 @@
 # Handoff — 2026-10-29-ticket-workflow-service
 
-**Last updated:** 2026-10-29T20:00:00Z
+**Last updated:** 2026-10-29T18:17:33Z
 **Branch:** feat/ticket-workflow-service
 **PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (ready for review)
 **Current phase/step:** run complete — every Tasks row done
-**Last commit:** b921ad2 — docs(readme): add the invented-data case to the AI section
+**Last commit:** 4191b50 — docs(readme): say the T-6 example needs a moment to reach completed
+
+## Fix run — test isolation
+- 5.16: tests/conftest.py autouse fixture sets `workflow_info_on_message` / `activity_info_on_message` to False per test and restores them; test_scenarios no longer depends on an earlier configure_logging() call. App code unchanged.
+- 5.17: README T-6 example says a GET right after the POST usually shows `deciding`.
+- Gate green (ruff, ruff format, pytest 246). Each tests/test_*.py run alone: green. Full suite with files in reverse order: 246 passed.
 
 ## Fix run — reference data
 - 1.7, 2.5, 5.13–5.15. Step 1.2 had made up the reference data and sample tickets; they are now the source records 1:1, pinned by a golden test (tests/test_data.py). Amounts are JSON numbers, read as Decimal and kept in cents.

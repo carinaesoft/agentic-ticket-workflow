@@ -69,6 +69,8 @@
 | 5 | 5.13 | Spec expectations table, README examples and run notes on the source data | inline | done | fb3819e |
 | 5 | 5.14 | README example run refreshed from a Compose run on the source data | inline | done | 4d7e000 |
 | 5 | 5.15 | README AI section: invented reference data case | inline | done | b921ad2 |
+| 5 | 5.16 | Tests: autouse fixture pins the Temporal logger flags, each test file passes alone and in any order | inline | done | 7fe6b2c |
+| 5 | 5.17 | README T-6 example: GET right after POST shows `deciding`, wait for `completed` | inline | done | 4191b50 |
 
 ## Goal
 
