@@ -30,7 +30,8 @@
 | 4 | 4.2 | Containers | inline | done | 1fa05f8 |
 | 4 | 4.3 | Demo script | inline | done | 0dadd1e |
 | 4 | 4.4 | JSON logs from uvicorn startup | inline | done | 92fa153 |
-| 5 | 5.1 | README | dispatch | done | pending |
+| 5 | 5.1 | README | dispatch | done | 09f8a46 |
+| 3 | 3.4-review-fix | Adversarial scripted model through loop and workflow | inline | done | pending |
 | 5 | 5.2 | CI | dispatch:cheap | todo | — |
 | 5 | 5.3 | End-to-end verification | inline | todo | — |
 
@@ -84,6 +85,8 @@ Step titles match the spec's Implementation Plan; each Step is one commit and le
 - **4.3 Demo script** — `scripts/demo.sh`; `bash -n` test.
 
 - **4.4 JSON logs from uvicorn startup** — fix forward found by the checkpoint-4 Compose smoke run: the API configured JSON logging in the lifespan, after uvicorn had already printed its plain-text startup lines. Configure logging when the production app is created instead; test it.
+
+- **3.4-review-fix Adversarial scripted model through loop and workflow** — found while verifying the README written in Step 5.1: the spec's prompt-injection defence 7 asks for an adversarial scripted model (refund on another customer's invoice, unknown action, over-limit amount) run through the real loop and workflow, and Step 3.4 had only covered those cases as rule unit tests plus T-6. Adds `tests/test_adversarial.py`.
 
 ### Phase 5 — Documentation and CI
 
