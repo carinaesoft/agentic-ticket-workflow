@@ -22,8 +22,8 @@
 | 2 | 2.2 | Agent loop | inline | done | cc2812c |
 | 2 | 2.3 | Fake model | inline | done | 5898b76 |
 | 2 | 2.4 | Real adapter | inline | done | 82deb65 |
-| 3 | 3.1 | Fake Helpdesk | inline | done | pending |
-| 3 | 3.2 | Activities | inline | todo | — |
+| 3 | 3.1 | Fake Helpdesk | inline | done | f6957ae |
+| 3 | 3.2 | Activities | inline | done | pending |
 | 3 | 3.3 | Workflow | inline | todo | — |
 | 3 | 3.4 | Worker and sample scenarios | inline | todo | — |
 | 4 | 4.1 | API | inline | todo | — |
