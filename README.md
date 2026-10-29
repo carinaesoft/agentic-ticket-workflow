@@ -281,12 +281,14 @@ not read from the environment, so a configuration change cannot break workflow r
   - `AgentOutputInvalid`, when the answer is still unreadable after the re-prompts
     (raised by the loop, converted in `decide_ticket`).
   - `AgentTurnLimit`, when there is no decision after 6 turns.
-  - `LLMConfigError`, for missing provider settings and for OpenAI authentication,
-    permission, not-found and bad-request errors.
+  - `LLMConfigError`, for missing provider settings.
+  - `LLMRequestRejected`, when the model provider answers 400, 401, 403, 404, 409 or 422;
+    the escalation reason names the status, for example
+    `LLM request rejected by the provider: HTTP 409 (ConflictError), not retried`.
   - `HelpdeskRejected`, when the Helpdesk refuses a request (including an idempotency key
     reused for a different action).
 
-  Timeouts, rate limits (429) and 5xx responses from the model, and
+  Timeouts, connection errors, 408, rate limits (429) and 5xx responses from the model, and
   `HelpdeskTransientError`, are retried.
 - **When `decide_ticket` fails** (non-retryable, or after 3 attempts) the workflow escalates
   with a readable reason, for example `unknown customer C-999` or

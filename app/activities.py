@@ -27,14 +27,10 @@ from app.domain.models import (
     Ticket,
 )
 
-# OpenAI errors that mean the request itself is wrong (key, model, parameters): a retry
-# would fail the same way. Timeouts, 429 and 5xx stay retryable.
-_PERMANENT_LLM_ERRORS = (
-    openai.AuthenticationError,
-    openai.PermissionDeniedError,
-    openai.NotFoundError,
-    openai.BadRequestError,
-)
+# Provider HTTP statuses that mean the request itself is wrong (parameters, key, access,
+# model, conflict, unprocessable input): a retry would fail the same way. Everything else
+# (408, 429, 5xx, timeouts, connection errors) propagates and is retried.
+NON_RETRYABLE_LLM_STATUSES = frozenset({400, 401, 403, 404, 409, 422})
 
 
 class DecideOutput(BaseModel):
@@ -92,10 +88,17 @@ class TicketActivities:
             raise ApplicationError(str(exc), type="AgentOutputInvalid", non_retryable=True) from exc
         except AgentTurnLimit as exc:
             raise ApplicationError(str(exc), type="AgentTurnLimit", non_retryable=True) from exc
-        except (LLMConfigError, *_PERMANENT_LLM_ERRORS) as exc:
+        except LLMConfigError as exc:
             raise ApplicationError(
-                f"LLM request rejected: {type(exc).__name__}",
-                type="LLMConfigError",
+                f"LLM configuration error: {exc}", type="LLMConfigError", non_retryable=True
+            ) from exc
+        except openai.APIStatusError as exc:
+            if exc.status_code not in NON_RETRYABLE_LLM_STATUSES:
+                raise
+            raise ApplicationError(
+                f"LLM request rejected by the provider: HTTP {exc.status_code} "
+                f"({type(exc).__name__}), not retried",
+                type="LLMRequestRejected",
                 non_retryable=True,
             ) from exc
 

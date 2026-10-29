@@ -10,6 +10,7 @@ from temporalio.testing import ActivityEnvironment
 from app.activities import ActionRequest, TicketActivities, idempotency_key
 from app.adapters.fake_llm import FakeChatModel
 from app.adapters.helpdesk import FakeHelpdesk
+from app.adapters.llm import LLMConfigError
 from app.data.store import DataStore
 from app.domain.models import CloseAction, RefundAction, Ticket
 from tests.scripted_model import ScriptedModel, answer
@@ -69,13 +70,48 @@ async def test_llm_timeout_stays_retryable() -> None:
         await ActivityEnvironment().run(activities(model).decide_ticket, T1)
 
 
-async def test_llm_auth_error_is_non_retryable() -> None:
-    response = httpx.Response(401, request=_request())
-    model = FailingModel(openai.AuthenticationError("bad key", response=response, body=None))
+def _status_error(status: int) -> openai.APIStatusError:
+    """The error class the OpenAI SDK raises for this status."""
+    response = httpx.Response(status, request=_request())
+    client = openai.OpenAI(api_key="test-key", base_url="https://api.example.invalid/v1")
+    return client._make_status_error("provider error", body=None, response=response)
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 409, 422])
+async def test_llm_client_error_is_non_retryable_with_reason(status: int) -> None:
+    exc = _status_error(status)
+    model = FailingModel(exc)
+    with pytest.raises(ApplicationError) as excinfo:
+        await ActivityEnvironment().run(activities(model).decide_ticket, T1)
+    assert excinfo.value.type == "LLMRequestRejected"
+    assert excinfo.value.non_retryable
+    assert excinfo.value.message == (
+        f"LLM request rejected by the provider: HTTP {status} ({type(exc).__name__}), not retried"
+    )
+
+
+@pytest.mark.parametrize("status", [408, 429, 500, 502, 503, 504])
+async def test_llm_transient_status_stays_retryable(status: int) -> None:
+    exc = _status_error(status)
+    model = FailingModel(exc)
+    with pytest.raises(openai.APIStatusError) as excinfo:
+        await ActivityEnvironment().run(activities(model).decide_ticket, T1)
+    assert excinfo.value is exc
+
+
+async def test_llm_connection_error_stays_retryable() -> None:
+    model = FailingModel(openai.APIConnectionError(request=_request()))
+    with pytest.raises(openai.APIConnectionError):
+        await ActivityEnvironment().run(activities(model).decide_ticket, T1)
+
+
+async def test_llm_config_error_is_non_retryable() -> None:
+    model = FailingModel(LLMConfigError("LLM_PROVIDER=openai requires OPENAI_API_KEY"))
     with pytest.raises(ApplicationError) as excinfo:
         await ActivityEnvironment().run(activities(model).decide_ticket, T1)
     assert excinfo.value.type == "LLMConfigError"
     assert excinfo.value.non_retryable
+    assert "OPENAI_API_KEY" in excinfo.value.message
 
 
 async def test_transient_helpdesk_error_is_retryable() -> None:
