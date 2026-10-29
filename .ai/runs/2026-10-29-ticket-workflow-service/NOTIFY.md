@@ -26,3 +26,6 @@
 - Steps 4.1–4.4 (ea80d6c..92fa153) verified: ruff, pytest (162 passed), compose config, offline tests container, Compose smoke run of the demo.
 - Problem: plain-text uvicorn startup lines in the API log (found by the smoke run) → fixed forward as Step 4.4.
 - Decision: host ports stay fixed at 7233/8233/8000 — they are free on this host, so the compose file was not made port-configurable.
+
+## 2026-10-29T15:43:02Z — delegation
+- Step 5.1 (README) dispatched to one executor subagent (tier: standard → sonnet), per the plan's Exec column. Main session verifies the commit before continuing.
