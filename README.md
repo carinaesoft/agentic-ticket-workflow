@@ -381,10 +381,34 @@ worker at startup with one JSON error line naming the variables, and exit code 2
 
 **Default model.** The default `OPENAI_MODEL` is `gpt-6-luna`, not `gpt-4o-mini`. OpenAI's
 deprecations page (checked 2026-10-29) lists `gpt-4o-mini` for removal on 2027-01-14 and
-names `gpt-6-luna` as the replacement. The `gpt-6-luna` model page says Chat Completions
-function calling works only with `reasoning_effort` set to `none`, so for OpenAI the adapter
-sends `reasoning_effort="none"`, for OpenAI and for Azure. **The real-model path has not been run against the live API**; it is
-tested only against a fake client object.
+names `gpt-6-luna` as the replacement.
+
+**Real model (OpenAI / Azure OpenAI).** The real model has **not been run against the live
+API**. The adapter (`app/adapters/llm.py`) is covered only by tests with a fake client object,
+which check the exact request sent for each provider.
+
+- **Enable it:** `LLM_PROVIDER=openai` with `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`),
+  or `LLM_PROVIDER=azure` with `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT` and
+  `AZURE_OPENAI_DEPLOYMENT` (a deployment of `gpt-6-luna`). Set them in the shell or `.env`
+  and restart the worker.
+- **Request:** Chat Completions with `model`, `messages`, `tools` and
+  `reasoning_effort="none"`, for both providers. Parameters were chosen from the official
+  documentation:
+  - [`gpt-6-luna` model page](https://developers.openai.com/api/docs/models/gpt-6-luna):
+    "Chat Completions supports function calling only with `reasoning_effort` set to `none`".
+  - [Latest model guide](https://developers.openai.com/api/docs/guides/latest-model):
+    `temperature` only when reasoning effort is `none`. The docs do not confirm
+    `temperature=0` and Azure lists `temperature` as unsupported for reasoning models
+    ([Azure reasoning models](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning)),
+    so it is not sent.
+  - [Chat Completions reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create):
+    `tool_choice` defaults to `auto` when tools are present, so it is not sent.
+  - JSON mode (`response_format`) is not documented for `gpt-6-luna`, so it is not sent; the
+    prompt asks for JSON and the agent loop re-prompts on an unreadable answer.
+- **Azure API version:** unset `AZURE_OPENAI_API_VERSION` uses the
+  [v1 API](https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle)
+  (`<endpoint>/openai/v1/`, no `api-version`). A dated version must be `2024-12-01-preview`
+  or later, the first one with `reasoning_effort`.
 
 ## Deploying on Azure
 
