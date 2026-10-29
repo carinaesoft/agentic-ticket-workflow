@@ -1,0 +1,5 @@
+{
+  "categories": ["account", "billing", "technical", "other"],
+  "priorities": ["low", "normal", "high", "urgent"],
+  "action_kinds": ["reply", "refund", "escalate", "close"]
+}

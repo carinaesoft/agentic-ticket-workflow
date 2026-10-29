@@ -1,0 +1,27 @@
+[
+  {
+    "article_id": "KB-1",
+    "title": "Resetting a forgotten password",
+    "text": "If you forgot your password or cannot log in, open the sign-in page, choose 'Forgot password' and follow the reset link we email you. The link is valid for 30 minutes."
+  },
+  {
+    "article_id": "KB-2",
+    "title": "Refund policy",
+    "text": "Duplicate charges and billing errors are refunded to the original card after review by the billing team. A refund never exceeds the amount of the invoice it relates to."
+  },
+  {
+    "article_id": "KB-3",
+    "title": "Service status and outages",
+    "text": "During an outage or when the API is down, check the status page. Enterprise customers have a dedicated incident channel and are contacted by the on-call engineer."
+  },
+  {
+    "article_id": "KB-4",
+    "title": "Suspended and locked accounts",
+    "text": "An account is suspended and locked when an invoice is overdue. Paying the overdue invoice from the billing page restores access within a few minutes."
+  },
+  {
+    "article_id": "KB-5",
+    "title": "Changing your plan",
+    "text": "You can upgrade or downgrade your plan at any time from the subscription settings. Changes take effect at the start of the next billing month."
+  }
+]

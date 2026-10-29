@@ -14,8 +14,8 @@
 
 | Phase | Step | Title | Exec | Status | Commit |
 |-------|------|-------|------|--------|--------|
-| 1 | 1.1 | Project skeleton | inline | done | pending |
-| 1 | 1.2 | Domain models and data files | inline | todo | — |
+| 1 | 1.1 | Project skeleton | inline | done | 3051f7a |
+| 1 | 1.2 | Domain models and data files | inline | done | pending |
 | 1 | 1.3 | Business rules | inline | todo | — |
 | 1 | 1.4 | Settings and JSON logging | inline | todo | — |
 | 2 | 2.1 | Tools | inline | todo | — |
@@ -94,6 +94,7 @@ Recorded as they are decided; each is minimal.
 
 1. **Default OpenAI model.** The spec names `gpt-4o-mini`. OpenAI's deprecations page (checked 2026-10-29) lists `gpt-4o-mini-2024-07-18` for removal on 2027-01-14 with `gpt-6-luna` as the replacement; the `gpt-6-luna` model page lists Chat Completions, function calling and structured outputs. Default `OPENAI_MODEL` is therefore `gpt-6-luna`. The same model page states that Chat Completions supports function calling for this model only with `reasoning_effort` set to `none`, so the OpenAI (non-Azure) request also sends `reasoning_effort="none"`. Azure keeps the spec's request shape because the deployment's model is unknown. Not verified against the live API (no key in this run).
 2. **`.gitignore`** also ignores `.ai/cezar/` (local tooling state of the agent runner that must never be committed).
+3. **`WorkflowStatus.failure_reason`.** The spec's pseudocode sets `result = failure reason` on a failed act step, but `result` is typed `ActionResult`. A separate optional `failure_reason: str` field carries the reason instead, so `result` keeps one type.
 
 ## Versions (checked 2026-10-29)
 
