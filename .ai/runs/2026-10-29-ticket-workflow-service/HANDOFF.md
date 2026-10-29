@@ -1,12 +1,13 @@
 # Handoff — 2026-10-29-ticket-workflow-service
 
-**Last updated:** 2026-10-29T16:23:30Z
+**Last updated:** 2026-10-29T17:20:00Z
 **Branch:** feat/ticket-workflow-service
 **PR:** https://github.com/carinaesoft/agentic-ticket-workflow/pull/3 (ready for review)
 **Current phase/step:** run complete — every Tasks row done
-**Last commit:** 2274371 — fix(rules): allow refunds only from paid invoices (plus the 24 h test commit)
+**Last commit:** eeae1b6 — fix(api): tell a missing worker from an unreachable Temporal on query timeout
 
 ## Fix run — API, logs, Compose
+- Gate green after every push (ruff, ruff format, pytest 212). Compose verified live with `HELPDESK_FAILURE_RATE=0.7` from the shell (worker logged 0.7); `docker compose logs api`: no uvicorn.access lines, every `http_request` line has ticket_id and workflow_id; stack removed with `docker compose down -v`.
 - 4.6-fix: Live run showed a query right after the worker stops ends as CANCELLED ('Timeout expired', SDK timer), not DEADLINE_EXCEEDED. DEADLINE_EXCEEDED/CANCELLED now run a 2 s Temporal health check: healthy → 503 `no worker available to answer`, unreachable → 503 `workflow service unavailable`. Verified on Compose: worker stopped → no worker (both GETs); Temporal stopped → service unavailable (GET, POST, fresh API connect).
 - 3.5: LLMConfigError at worker startup logs one `worker_config_error` JSON line (level ERROR, error + hint) and exits 2 instead of a traceback; Compose restart policy unchanged. Subprocess test checks exit code, empty stderr, single line.
 - 4.9: tests service has pull_policy: build; verified: a failing probe test added to tests/ showed up in `docker compose run --rm tests` without --build, and disappeared after reverting; full container run 207 passed.
