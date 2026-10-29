@@ -2,7 +2,8 @@
 
 Hosts ``TicketWorkflow`` and its activities on the ``tickets`` task queue. It owns the
 read-only reference data, the chat model selected by ``LLM_PROVIDER`` and the in-memory
-fake Helpdesk. Missing provider settings fail the process at startup.
+fake Helpdesk. Missing provider settings stop the process at startup with one JSON error
+line and exit code 2.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import asyncio
 import logging
 import random
 import signal
+import sys
 from datetime import timedelta
 
 from temporalio.client import Client
@@ -19,7 +21,7 @@ from temporalio.worker import Worker
 
 from app.activities import TicketActivities
 from app.adapters.helpdesk import FakeHelpdesk
-from app.adapters.llm import build_chat_model
+from app.adapters.llm import LLMConfigError, build_chat_model
 from app.agent.loop import AgentLimits
 from app.config import Settings
 from app.data.store import DataStore
@@ -67,10 +69,24 @@ async def connect(settings: Settings) -> Client:
     )
 
 
-async def main() -> None:
+CONFIG_ERROR_EXIT_CODE = 2
+
+
+async def main() -> int:
     settings = Settings()
     configure_logging(settings.log_level)
-    activities = build_activities(settings)  # raises LLMConfigError on missing settings
+    try:
+        activities = build_activities(settings)
+    except LLMConfigError as err:
+        # A configuration problem, not a crash: one clear line instead of a traceback.
+        log.error(
+            "worker_config_error",
+            extra={
+                "error": str(err),
+                "hint": "set the missing variables (shell or .env) or use LLM_PROVIDER=fake",
+            },
+        )
+        return CONFIG_ERROR_EXIT_CODE
     client = await connect(settings)
 
     stop = asyncio.Event()
@@ -90,7 +106,8 @@ async def main() -> None:
         )
         await stop.wait()
         log.info("worker_stopping")
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))

@@ -7,6 +7,7 @@
 **Last commit:** 2274371 — fix(rules): allow refunds only from paid invoices (plus the 24 h test commit)
 
 ## Fix run — API, logs, Compose
+- 3.5: LLMConfigError at worker startup logs one `worker_config_error` JSON line (level ERROR, error + hint) and exits 2 instead of a traceback; Compose restart policy unchanged. Subprocess test checks exit code, empty stderr, single line.
 - 4.9: tests service has pull_policy: build; verified: a failing probe test added to tests/ showed up in `docker compose run --rm tests` without --build, and disappeared after reverting; full container run 207 passed.
 - 4.8: docker-compose.yml interpolates every setting (defaults = Settings defaults, keys empty); verified with docker compose config: no .env → fake/0.2, .env → its values, shell HELPDESK_FAILURE_RATE=0.7 wins over .env. tests/test_compose.py guards names and defaults; the tests image copies docker-compose.yml.
 - 4.7: uvicorn runs with --no-access-log (and configure_logging disables uvicorn.access); a pure ASGI middleware logs `http_request` (method, path, status, duration_ms) for ticket routes and binds the ticket (path, or the POST body) so every API line of the request has ticket_id and workflow_id. Access-line parsing removed from app/logging.py.

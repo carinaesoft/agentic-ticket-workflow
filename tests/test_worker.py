@@ -1,3 +1,9 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from app.adapters.fake_llm import FakeChatModel
@@ -27,3 +33,25 @@ def test_worker_fails_at_startup_without_provider_settings(monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with pytest.raises(LLMConfigError):
         build_activities(Settings.model_validate({"llm_provider": "openai"}))
+
+
+def test_worker_without_provider_settings_logs_one_json_error_and_exits() -> None:
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if not name.startswith(("OPENAI_", "AZURE_", "LLM_", "LOG_"))
+    }
+    result = subprocess.run(
+        [sys.executable, "-m", "app.worker"],
+        env={**env, "LLM_PROVIDER": "openai"},
+        cwd=Path(__file__).parents[1],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 2
+    assert result.stderr == ""
+    [line] = result.stdout.splitlines()
+    entry = json.loads(line)
+    assert (entry["level"], entry["event"]) == ("ERROR", "worker_config_error")
+    assert entry["error"] == "LLM_PROVIDER=openai requires OPENAI_API_KEY"
