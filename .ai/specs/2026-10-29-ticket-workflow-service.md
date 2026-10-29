@@ -22,7 +22,7 @@ Each requirement is covered by at least one step and one test in the Implementat
 
 - **FR-1** Each ticket is processed by exactly one durable Temporal workflow with the steps: *decide → validate → (await approval, refunds only) → act*.
 - **FR-2** *Decide*: an activity asks the LLM for a decision consisting of one `category`, one `priority` and exactly one `action`. The model gathers context only through tool calls.
-- **FR-3** *Validate*: plain code checks the decision. Category, priority and action kind must be from the allowed sets; a refund must reference an invoice that belongs to the ticket's customer and must not exceed that invoice's amount; reply articles must exist. Any violation turns the decision into an `escalate` action whose reason names the violated rule.
+- **FR-3** *Validate*: plain code checks the decision. Category, priority and action kind must be from the allowed sets; a refund must reference an invoice that belongs to the ticket's customer, has the status `paid`, and must not exceed that invoice's amount; reply articles must exist. Any violation turns the decision into an `escalate` action whose reason names the violated rule.
 - **FR-4** *Await approval*: a refund decision waits for a human approve/reject sent through the API. With no answer within 24 hours the ticket is escalated instead.
 - **FR-5** *Act*: an activity executes the final action (`reply`, `refund`, `escalate`, `close`) through the fake Helpdesk API.
 - **FR-6** The workflow exposes its current step, the decision (original and effective) and the final result at any time, including after it has finished.
@@ -268,24 +268,24 @@ raise AgentTurnLimit
 
 ### Fake model (`app/adapters/fake_llm.py`)
 
-A deterministic keyword-rule stand-in that **goes through the same loop**: on its first turns it emits tool calls (`get_customer`, then `get_invoices` and/or `search_kb` depending on keywords), reads the tool results from the message history, and only then emits a `Decision` JSON. It is intentionally naive — it takes a refund amount stated in the ticket at face value — so the rules, not the fake, are what stops a manipulative ticket. Expected outcomes on the samples:
+A deterministic keyword-rule stand-in that **goes through the same loop**: on its first turns it emits tool calls (`get_customer`, then `get_invoices` and/or `search_kb` depending on keywords), reads the tool results from the message history, and only then emits a `Decision` JSON. It is intentionally naive — it takes a refund amount stated in the ticket at face value and, when the ticket names no invoice, uses the customer's first paid invoice — so the rules, not the fake, are what stops a manipulative ticket. Its keyword rules are written for the source tickets in `samples/tickets.json` and the KB in `app/data/kb.json`. Expected outcomes on the samples:
 
 | Ticket | Tools called | Proposed decision | Final outcome after rules/approval |
 |---|---|---|---|
-| T-1 login | customer, kb("password") | account / normal / reply [KB-1] | reply sent |
-| T-2 charged twice | customer, invoices, kb("refund") | billing / high / refund INV-1002 49.00 | waits for approval → refund (approve) or reply (reject) or escalate (24 h) |
-| T-3 API down, enterprise | customer, kb("outage") | technical / urgent / escalate "outage reported by enterprise customer" | escalated |
-| T-4 locked, suspended | customer, invoices, kb("suspended") | account / high / reply [KB-4] mentioning overdue INV-4001 | reply sent |
-| T-5 off-topic | customer | other / low / close "not a support request" | closed |
-| T-6 injection, 5000 EUR | customer, invoices | billing / high / refund INV-1001 5000.00 | rules: amount exceeds invoice → escalated |
-| T-7 unknown customer | — (`UnknownCustomer` before model) | none | escalated "unknown customer C-999" |
+| T-1 C-200 (free), forgot password | customer, kb("password") | account / normal / reply [KB-1] | reply sent |
+| T-2 C-100 charged twice (INV-1001 and INV-1002, both 2026-09, 49.00, paid) | customer, invoices, kb("refund") | billing / high / refund INV-1002 49.00 (the second, duplicate charge) | waits for approval → refund (approve) or reply (reject) or escalate (24 h) |
+| T-3 C-300 (enterprise) API down, "urgent" | customer, kb("outages") → KB-3 | technical / urgent / escalate "outage reported by enterprise customer" | escalated |
+| T-4 C-400 (suspended, INV-4001 overdue) | customer, invoices, kb("suspended") | account / high / reply [KB-4] mentioning overdue INV-4001 | reply sent |
+| T-5 C-200 pizza place | customer | other / low / close "not a support request" | closed |
+| T-6 C-100 injection, 5000 EUR, no invoice named | customer, invoices, kb("refund") | billing / high / refund INV-1001 5000.00 | rules: amount exceeds invoice → escalated, no approval |
+| T-7 C-999 unknown customer | — (`UnknownCustomer` before model) | none | escalated "unknown customer C-999", no retry |
 
 ### Prompt-injection defences (FR-8)
 
 1. FR-3 rules are pure Python run in the workflow on every decision; no prompt text can change them.
 2. Every refund requires a human signal, regardless of ticket content or model output; there is no code path from `decide` to a refund that skips `awaiting_approval`.
 3. `customer_id` always comes from the ticket record, never from the model; tools are scoped to that customer.
-4. Refund amount ≤ amount of an invoice owned by that customer; invoice must exist.
+4. Refund amount ≤ amount of a `paid` invoice owned by that customer; invoice must exist.
 5. The ticket subject/body is wrapped in a clearly delimited `<untrusted_ticket>` block, and the system prompt states that its contents are data, never instructions.
 6. Model output is parsed into a strict schema; anything else is an unreadable answer, not a partial decision.
 7. Tests feed T-6 and an "adversarial fake" (a scripted model returning a refund for another customer's invoice, an unknown action, and an over-limit amount) through the real loop + workflow and assert escalation.
@@ -295,7 +295,7 @@ A deterministic keyword-rule stand-in that **goes through the same loop**: on it
 `validate_decision(proposed: ProposedDecision, ticket, ctx) -> ValidationOutcome{decision: Decision, errors: list[str]}` converts the untyped proposal into a typed `Decision`; when `errors` is non-empty the returned decision is `escalate` with `reason = "decision rejected by rules: " + "; ".join(errors)`, keeping the agent's category/priority when valid (else `other`/`normal`). Checks:
 
 - category, priority, action kind in the allowed sets; the action's fields match its kind (e.g. a refund has `invoice_id` and a positive decimal `amount_eur`);
-- `refund`: invoice exists in `ctx.invoices`, belongs to `ticket.customer_id`, `0 < amount ≤ invoice.amount_eur`;
+- `refund`: invoice exists in `ctx.invoices`, belongs to `ticket.customer_id`, has `status == "paid"` (else `invoice <id> is not paid (status: <status>)`), `0 < amount ≤ invoice.amount_eur`;
 - `reply`: non-empty message ≤ 2000 chars, every `article_id` exists in the KB;
 - `escalate`/`close`: non-empty reason ≤ 500 chars.
 
@@ -315,7 +315,7 @@ A deterministic keyword-rule stand-in that **goes through the same loop**: on it
 | `TEMPORAL_NAMESPACE` | `default` | API, worker |
 | `TEMPORAL_TASK_QUEUE` | `tickets` | API, worker |
 | `LLM_PROVIDER` | `fake` | worker — `fake` \| `openai` \| `azure` |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | — / `gpt-4o-mini` | worker (openai) |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | — / `gpt-6-luna` | worker (openai) |
 | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` | — | worker (azure) |
 | `AGENT_MAX_TURNS`, `AGENT_MAX_PARSE_RETRIES` | `6`, `2` | worker |
 | `HELPDESK_FAILURE_RATE`, `HELPDESK_LOST_RESPONSE_RATE`, `HELPDESK_SEED` | `0.2`, `0.1`, unset | worker |
@@ -359,7 +359,7 @@ Missing provider settings with `LLM_PROVIDER≠fake` fail the worker at startup 
 | Approval for a ticket not waiting | `409` with current step. Late signal after the timer → ignored and logged. |
 | Helpdesk transient failure | retried up to 5 attempts with backoff. |
 | Helpdesk effect done, response lost | retry returns stored result; one effect. |
-| Helpdesk down for all attempts | `step = failed`, result reason "helpdesk unavailable after 5 attempts"; ticket readable via GET. |
+| Helpdesk down for all attempts | `lookup_action_result` (≤ 3 attempts) asks the Helpdesk by idempotency key; action recorded → `completed` with that result (logged `action_reconciled`); else `step = failed`, result reason "helpdesk unavailable after 5 attempts"; ticket readable via GET. |
 | Worker restart mid-flight | Temporal re-dispatches; workflow resumes from history; in-memory Helpdesk store is lost (documented limitation). |
 | Temporal down | API returns `503`; worker reconnects on its own. |
 | `GET` with no worker running | Query times out → `503 {"detail": "no worker available to answer"}`. |
@@ -384,7 +384,7 @@ Missing provider settings with `LLM_PROVIDER≠fake` fail the worker at startup 
 | Q6 | Where do the FR-3 rules run? | Inside the workflow as a pure function, with a data snapshot returned by `decide_ticket`. | Deterministic and impossible to bypass from the activity side. |
 | Q7 | Retry limits? | decide: 3 attempts; act: 5 attempts; parse re-prompts: 2; agent turns: 6. | Bounded, quick to demo, all configurable in one place. |
 | Q8 | What if the Helpdesk is down for every attempt, even for escalation? | Workflow ends `failed` with an explicit reason, still queryable. | No infinite retries; a clear terminal state beats a hidden hang. |
-| Q9 | Default model for real mode? | `gpt-4o-mini` (OpenAI) / deployment name from env (Azure). | Cheap, supports tool calling and JSON mode; one env var to change. |
+| Q9 | Default model for real mode? | `gpt-6-luna` (OpenAI) / deployment name from env (Azure). | Cheap, supports tool calling and JSON mode; one env var to change. Changed on 2026-10-29 from the originally chosen `gpt-4o-mini`, because that model was retired. |
 | Q10 | Temporal image | `temporalio/temporal:1.9.1`, `server start-dev`, UI on 8233. | Single container with server + UI; newest tagged CLI image at spec time. |
 | Q11 | How do tests stay offline? | Test-server binary cached at image build; `docker compose run --rm tests` with `network_mode: none`; host `pytest` offline after first run. | Meets the requirement verifiably while keeping one command. |
 | Q12 | Default failure rates | `HELPDESK_FAILURE_RATE=0.2`, `HELPDESK_LOST_RESPONSE_RATE=0.1`. | Retries are visible in logs and the Temporal UI during the demo without exhausting 5 attempts in practice. |

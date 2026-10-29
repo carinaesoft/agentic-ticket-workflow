@@ -1,0 +1,6 @@
+ Container agentic-ticket-workflow-temporal-1 Running 
+ Container agentic-ticket-workflow-api-1 Running 
+ Container agentic-ticket-workflow-worker-1 Running 
+ Container agentic-ticket-workflow-tests-run-8f7a1434e494 Creating 
+ Container agentic-ticket-workflow-tests-run-8f7a1434e494 Created 
+network: unreachable -> [Errno -3] Temporary failure in name resolution

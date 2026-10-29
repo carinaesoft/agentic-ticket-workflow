@@ -2,7 +2,7 @@
 
 ## Project overview
 
-`agentic-ticket-workflow` is a small Python service for agentic ticket handling, built with FastAPI (HTTP API) and Temporal (durable workflows and activities). The repository currently contains only the agent pipeline configuration; application code has not been written yet. Update this file as the code takes shape.
+`agentic-ticket-workflow` is a small Python service for agentic ticket handling, built with FastAPI (HTTP API) and Temporal (durable workflows and activities). The code lives in `app/` (API, workflow, activities, agent loop, domain rules, adapters); `README.md` documents the architecture, configuration and Azure design. Update this file as the code takes shape.
 
 ## Task routing
 
@@ -10,11 +10,11 @@
 |---|---|---|
 | Process, labels, QA gate, claims | `SDLC.md`, `.ai/agentic.config.json` | Follow the label state machine and claim protocol in `SDLC.md`; PRs target `main`. |
 | Code review | `CODE_REVIEW.md` | Applied automatically by `om-code-review`. |
-| HTTP API (FastAPI routes, request/response models) | TODO — no API code yet | TODO — record the router layout and validation conventions once the first endpoint lands. |
-| Temporal workflows and activities | TODO — no workflow code yet | Workflow code must stay deterministic; I/O, clocks, randomness, and external calls belong in activities. See `CODE_REVIEW.md`. |
-| Tests | TODO — no tests yet | Every behavior change ships with tests; `pytest` is part of the validation gate. |
-| Dependencies and tooling | TODO — no `pyproject.toml` yet | Lint and format with `ruff`. |
-| CI | TODO — no workflows yet | CI should run the same commands as the validation gate below. |
+| HTTP API (FastAPI routes, request/response models) | `app/api/main.py`, `app/api/schemas.py` | Handlers stay thin: start, query or signal the workflow and map Temporal errors to HTTP (404, 503). Request models reuse `app/domain/models.py`; workflow ID is `ticket-{ticket_id}`. |
+| Temporal workflows and activities | `app/workflows/ticket.py`, `app/activities.py`, `app/worker.py` | Workflow code must stay deterministic; I/O, clocks, randomness, and external calls belong in activities (`decide_ticket`, `execute_action`). Timeouts and retry policies are constants, not env settings. Business rules (`app/domain/rules.py`) import no FastAPI, Temporal or OpenAI code. See `CODE_REVIEW.md`. |
+| Tests | `tests/conftest.py`, `tests/scripted_model.py` | Every behavior change ships with tests; `pytest` is part of the validation gate. Workflow tests use the Temporal time-skipping server (downloaded once into `.temporal-test-server/`); no network or API key afterwards. |
+| Dependencies and tooling | `pyproject.toml`, `Dockerfile`, `docker-compose.yml`, `.env.example` | Dependencies are pinned in `pyproject.toml`; lint and format with `ruff`. New environment variables go in `app/config.py` and `.env.example` (no real values). |
+| CI | `.github/workflows/ci.yml` | `.github/workflows/ci.yml` runs the validation gate below. |
 | Specs and plans | `.ai/specs/`, `.ai/runs/` | Specs use `{YYYY-MM-DD}-{kebab-case-title}.md`. |
 | Tracker and browser operations | `.ai/trackers/github.md`, `.ai/browsers/none.md` | GitHub through `gh`. No UI, so no browser automation: verify through tests and HTTP requests. |
 
@@ -26,7 +26,7 @@ Run in order; any non-zero exit fails the gate:
 2. `ruff format --check .`
 3. `pytest`
 
-These commands start passing once the Python project and its dev dependencies are added.
+Install the dev dependencies first: `pip install -e ".[dev]"`.
 
 ## Repository rules
 

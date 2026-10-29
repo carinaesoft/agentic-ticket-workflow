@@ -2,3 +2,18 @@
 .ai/qa/artifacts_*/
 .ai/qa/test-env.json
 .ai/qa/test-env.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local settings and the cached Temporal test server
+.env
+.temporal-test-server/
+
+# Local state of the agent runner; never committed
+.ai/cezar/
