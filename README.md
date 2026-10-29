@@ -172,17 +172,17 @@ POST T-2/approval -> 202 {"ticket_id":"T-2","workflow_id":"ticket-T-2","approved
 
 | Ticket | Expected | Observed |
 |---|---|---|
-| T-1 | reply citing KB-1 | reply `[KB-1]`, completed |
-| T-2 | refund INV-1002 49.00 after approval | waited in `awaiting_approval`, approved, one refund of 49.00 EUR |
-| T-3 | escalate "outage reported by enterprise customer" | same, completed |
-| T-4 | reply citing KB-4, mentions overdue INV-4001 | reply `[KB-4]`, completed (the demo does not print the message text; `tests/test_fake_llm.py` checks INV-4001) |
-| T-5 | close "not a support request" | same, completed |
-| T-6 | proposed refund 5000.00 → escalated by the rules | same; `proposed_decision` kept for audit |
-| T-7 | escalate "unknown customer C-999", no model call | same; `proposed_decision` is `null` |
+| T-1 | account / normal, reply citing KB-1 | same; reply `[KB-1]`, completed |
+| T-2 | billing / high, refund of the duplicate INV-1002 49.00 after approval | waited in `awaiting_approval`, approved, one refund of 49.00 EUR |
+| T-3 | technical / urgent, escalate "outage reported by enterprise customer" | same, completed |
+| T-4 | account / high, reply citing KB-4, mentions overdue INV-4001 | same; `GET /tickets/T-4` shows the message "Your account is suspended because invoice INV-4001 is overdue. Pay the invoice to unlock the account." |
+| T-5 | other / low, close "not a support request" | same, completed |
+| T-6 | billing / high, proposed refund 5000.00 on INV-1001 → escalated by the rules, no approval | same; `proposed_decision` kept for audit, `approval` is `null` |
+| T-7 | escalate "unknown customer C-999", no model call, no retry | same; `proposed_decision` is `null`, one `decide_started` and one `decision_failed` in the logs |
 | T-1 again | `200`, `duplicate: true`, no second run | same; one `decide_started` for T-1 in the logs |
 
-In this run the injected Helpdesk failures hit only T-6: one transient error, then success on
-the retry. The failures are random (no `HELPDESK_SEED`), so another run hits other tickets.
+In this run the injected Helpdesk failures hit T-1 and T-4: one transient error each, then
+success on the retry. The failures are random (no `HELPDESK_SEED`), so another run hits other tickets.
 Every ticket shows exactly one `action_executed`. `temporal workflow list` showed the seven
 `ticket-T-*` workflows as `Completed`, and the web UI answered on port 8233.
 
@@ -191,12 +191,12 @@ lines, every one with `"ticket_id": "T-2"` and `"workflow_id": "ticket-T-2"`, in
 API's `http_request` lines. An excerpt:
 
 ```
-{"ts": "2026-10-29T17:28:16.777+00:00", "level": "INFO", "logger": "app.api", "event": "ticket_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "subject_length": 24, "body_length": 94}
-{"ts": "2026-10-29T17:28:17.079+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "step_changed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "step": "awaiting_approval"}
-{"ts": "2026-10-29T17:28:18.092+00:00", "level": "INFO", "logger": "app.api", "event": "approval_sent", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true, "reviewer": "demo-reviewer"}
-{"ts": "2026-10-29T17:28:18.093+00:00", "level": "INFO", "logger": "app.api", "event": "http_request", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "method": "POST", "path": "/tickets/T-2/approval", "status": 202, "duration_ms": 9.3}
-{"ts": "2026-10-29T17:28:18.096+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "approval_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true}
-{"ts": "2026-10-29T17:28:18.101+00:00", "level": "INFO", "logger": "temporalio.activity", "event": "action_executed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 1, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "helpdesk_reference": "HD-00007"}
+{"ts": "2026-10-29T18:01:59.294+00:00", "level": "INFO", "logger": "app.api", "event": "ticket_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "subject_length": 13, "body_length": 69}
+{"ts": "2026-10-29T18:01:59.321+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "step_changed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "step": "awaiting_approval"}
+{"ts": "2026-10-29T18:01:59.450+00:00", "level": "INFO", "logger": "app.api", "event": "approval_sent", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true, "reviewer": "demo-reviewer"}
+{"ts": "2026-10-29T18:01:59.450+00:00", "level": "INFO", "logger": "app.api", "event": "http_request", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "method": "POST", "path": "/tickets/T-2/approval", "status": 202, "duration_ms": 10.8}
+{"ts": "2026-10-29T18:01:59.453+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "approval_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true}
+{"ts": "2026-10-29T18:01:59.458+00:00", "level": "INFO", "logger": "temporalio.activity", "event": "action_executed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 1, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "helpdesk_reference": "HD-00006"}
 ```
 
 `docker compose run --rm tests` (service with `network_mode: none`) passed. Inside that

@@ -66,7 +66,8 @@
 | 4 | 4.10 | Compose: worker restart: on-failure:3 instead of an endless restart loop | inline | done | 4953f06 |
 | 1 | 1.7 | Reference data and sample tickets replaced 1:1 with the source records; golden test | inline | done | da8cede |
 | 2 | 2.5 | Fake model keyword rules fitted to the source tickets and KB | inline | done | 635dfed |
-| 5 | 5.13 | Spec expectations table, README examples and run notes on the source data | inline | done | pending |
+| 5 | 5.13 | Spec expectations table, README examples and run notes on the source data | inline | done | fb3819e |
+| 5 | 5.14 | README example run refreshed from a Compose run on the source data | inline | done | pending |
 
 ## Goal
 
