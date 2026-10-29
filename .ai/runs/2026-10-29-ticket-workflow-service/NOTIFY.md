@@ -36,3 +36,8 @@
 - Problem: the README written in 5.1 described an adversarial-model test that did not exist yet (spec defence 7) → added as Step 3.4-review-fix.
 - Problem: the first Step 5.3 run showed uvicorn access lines about T-2 without ticket/workflow IDs → fixed as Step 4.5, then the whole 5.3 run was repeated on rebuilt images.
 - Integration suite via om-integration-tests skipped: no UI, no browser provider, no separate runner (coverage listed in final-gate-checks.md). Design-system pass skipped: no such tooling.
+
+## 2026-10-29T15:58:48Z — checkpoint 5 (review fixes)
+- Delegation: code review by a fresh reviewer subagent (tier capable → opus), read-only, following om-code-review; re-review by the same subagent.
+- Review: approve, 4 minors (sub-cent refund amounts, case-sensitive envelope escaping, 404 instead of 409 on approval race, query failures as 500) → fixed in 1.3/2.2/4.1-review-fix. Re-review: approve, 1 new minor (log line without IDs) → fixed in 4.4-review-fix. Gate: 188 passed.
+- Deferred nits and the overdue-invoice product question recorded in checkpoint-5-checks.md.
