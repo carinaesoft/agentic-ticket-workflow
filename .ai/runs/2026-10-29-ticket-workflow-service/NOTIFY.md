@@ -12,3 +12,7 @@
 - Steps 1.1–1.4 (3051f7a..914f457) verified: ruff check, ruff format --check, pytest (76 passed).
 - Decision: `WorkflowStatus.failure_reason` added (PLAN.md Deviations 3).
 - UI pass skipped: the service has no UI.
+
+## 2026-10-29T15:18:09Z — checkpoint 2
+- Steps 2.1–2.4 (b3b2a09..82deb65) verified: ruff check, ruff format --check, pytest (113 passed).
+- Decision: OpenAI requests send `reasoning_effort="none"` (needed for function calling with the default model); Azure requests keep the spec shape.
