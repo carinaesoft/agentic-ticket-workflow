@@ -4,6 +4,9 @@ fake activities."""
 from __future__ import annotations
 
 import asyncio
+import io
+import json
+import logging
 import uuid
 
 import httpx
@@ -16,8 +19,10 @@ from temporalio.worker import Worker
 
 from app.activities import ActionRequest, DecideOutput
 from app.api.main import create_app
+from app.api.request_log import ticket_id_from
 from app.config import Settings
 from app.domain.models import ActionResult, Ticket
+from app.logging import JsonFormatter
 from app.workflows.ticket import TicketWorkflow
 from tests.test_workflow import REFUND, REPLY, decide_output
 
@@ -353,3 +358,104 @@ async def test_query_failures_are_503(error, caplog) -> None:
     assert response.json() == {"detail": "ticket state cannot be read right now"}
     record = next(r for r in caplog.records if r.getMessage() == "workflow_query_failed")
     assert record.workflow_id == "ticket-T-1"
+
+
+@pytest.fixture
+def api_log_lines():
+    """JSON lines of the ``app.api`` logger, formatted at emit time as in production."""
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(JsonFormatter())
+    logger = logging.getLogger("app.api")
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    try:
+        yield lambda: [json.loads(line) for line in stream.getvalue().splitlines()]
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+
+async def test_every_api_line_for_a_ticket_request_has_both_ids(api, api_log_lines) -> None:
+    http, _ = api
+    ticket = new_ticket()
+    ticket_id, workflow_id = ticket["ticket_id"], f"ticket-{ticket['ticket_id']}"
+    requests = [
+        (await http.post("/tickets", json=ticket)).status_code,
+        (await http.post("/tickets", json={**ticket, "body": None})).status_code,
+    ]
+    await wait_for(http, ticket_id, "completed")
+    requests += [
+        (await http.post("/tickets", json=ticket)).status_code,
+        (await http.get(f"/tickets/{ticket_id}")).status_code,
+        (
+            await http.post(
+                f"/tickets/{ticket_id}/approval", json={"approved": True, "reviewer": "x"}
+            )
+        ).status_code,
+    ]
+    assert requests == [202, 422, 200, 200, 409]
+
+    lines = api_log_lines()
+    assert {line["event"] for line in lines} >= {
+        "ticket_received",
+        "workflow_started",
+        "duplicate_ticket_submission",
+        "approval_rejected_not_waiting",
+        "http_request",
+    }
+    for line in lines:
+        assert (line["ticket_id"], line["workflow_id"]) == (ticket_id, workflow_id), line
+    http_lines = [line for line in lines if line["event"] == "http_request"]
+    assert [(line["method"], line["path"], line["status"]) for line in http_lines[:2]] == [
+        ("POST", "/tickets", 202),
+        ("POST", "/tickets", 422),
+    ]
+    assert [(line["method"], line["status"]) for line in http_lines[-3:]] == [
+        ("POST", 200),
+        ("GET", 200),
+        ("POST", 409),
+    ]
+    assert all(isinstance(line["duration_ms"], float) for line in http_lines)
+
+
+async def test_failure_lines_carry_the_ticket_ids(monkeypatch, api_log_lines) -> None:
+    async def refuse(address, **kwargs):
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr("app.api.main.Client.connect", refuse)
+    app = create_app(client=None, settings=Settings())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as http:
+        await http.get("/tickets/T-9")
+    lines = api_log_lines()
+    assert [(line["event"], line.get("status")) for line in lines] == [
+        ("temporal_connect_failed", None),
+        ("http_request", 503),
+    ]
+    assert all((line["ticket_id"], line["workflow_id"]) == ("T-9", "ticket-T-9") for line in lines)
+
+
+async def test_non_ticket_routes_are_not_logged(api, api_log_lines) -> None:
+    http, _ = api
+    assert (await http.get("/openapi.json")).status_code == 200
+    assert api_log_lines() == []
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body", "expected"),
+    [
+        ("GET", "/tickets/T-2", b"", "T-2"),
+        ("POST", "/tickets/T-2/approval", b"{}", "T-2"),
+        ("POST", "/tickets", b'{"ticket_id": "T-3"}', "T-3"),
+        ("POST", "/tickets", b'{"ticket_id": "bad id"}', None),
+        ("POST", "/tickets", b"not json", None),
+        ("POST", "/tickets", b"[1]", None),
+        ("GET", "/tickets/bad%20id", b"", None),
+        ("GET", "/docs", b"", None),
+    ],
+)
+def test_ticket_id_from_request(method, path, body, expected) -> None:
+    assert ticket_id_from(method, path, body) == expected

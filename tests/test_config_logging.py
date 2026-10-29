@@ -5,7 +5,13 @@ import sys
 import pytest
 
 from app.config import Settings
-from app.logging import JsonFormatter, configure_logging, ticket_extra, workflow_id_for
+from app.logging import (
+    JsonFormatter,
+    bind_ticket,
+    configure_logging,
+    ticket_extra,
+    workflow_id_for,
+)
 
 ENV_NAMES = [
     "LLM_PROVIDER",
@@ -111,28 +117,24 @@ def test_formatter_derives_ticket_id_from_workflow_id() -> None:
     assert json.loads(JsonFormatter().format(make_record()))["ticket_id"] is None
 
 
-@pytest.mark.parametrize(
-    ("path", "ticket_id"),
-    [
-        ("/tickets/T-2", "T-2"),
-        ("/tickets/T-2/approval", "T-2"),
-        ("/tickets/T-2?x=1", "T-2"),
-        ("/tickets", None),
-        ("/docs", None),
-    ],
-)
-def test_formatter_adds_ids_to_uvicorn_access_lines(path, ticket_id) -> None:
-    record = logging.makeLogRecord(
-        {
-            "name": "uvicorn.access",
-            "levelname": "INFO",
-            "msg": '%s - "%s %s HTTP/%s" %d',
-            "args": ("172.30.0.1:4000", "GET", path, "1.1", 200),
-        }
-    )
-    entry = json.loads(JsonFormatter().format(record))
-    assert entry["ticket_id"] == ticket_id
-    assert entry["workflow_id"] == (f"ticket-{ticket_id}" if ticket_id else None)
+def test_formatter_adds_bound_ticket_to_lines_without_ids() -> None:
+    with bind_ticket("T-3"):
+        bound = json.loads(JsonFormatter().format(make_record()))
+        own = json.loads(JsonFormatter().format(make_record(**ticket_extra("T-4"))))
+    assert (bound["ticket_id"], bound["workflow_id"]) == ("T-3", "ticket-T-3")
+    assert (own["ticket_id"], own["workflow_id"]) == ("T-4", "ticket-T-4")
+    assert json.loads(JsonFormatter().format(make_record()))["ticket_id"] is None
+
+
+def test_uvicorn_access_log_is_disabled() -> None:
+    root = logging.getLogger()
+    previous_handlers, previous_level = root.handlers[:], root.level
+    try:
+        configure_logging("INFO")
+        assert logging.getLogger("uvicorn.access").disabled
+    finally:
+        root.handlers, root.level = previous_handlers, previous_level
+        logging.getLogger("uvicorn.access").disabled = False
 
 
 def test_formatter_includes_exception() -> None:

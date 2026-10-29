@@ -16,7 +16,7 @@ RUN pip install . \
 
 USER appuser
 EXPOSE 8000
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
 
 # --- tests: app + dev dependencies + the cached Temporal test server ----------------------
 FROM app AS tests

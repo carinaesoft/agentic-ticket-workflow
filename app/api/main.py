@@ -25,6 +25,7 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.service import RPCError, RPCStatusCode
 
+from app.api.request_log import TicketRequestLog
 from app.api.schemas import ApprovalAccepted, ErrorDetail, NotAwaitingApproval, TicketAccepted
 from app.config import Settings
 from app.domain.models import (
@@ -52,6 +53,7 @@ def create_app(client: Client | None = None, settings: Settings | None = None) -
     app = FastAPI(title="Ticket workflow service")
     app.state.client = client
     app.state.connect_lock = asyncio.Lock()
+    app.add_middleware(TicketRequestLog)
     app.state.settings = settings or Settings()
     if client is None:
         # At import time, so uvicorn's own startup lines are JSON too.

@@ -42,7 +42,8 @@
 | 3 | 3.3-qa-fix | Reconcile a lost response after the last execute_action attempt | inline | done | f3450b7 |
 | 1 | 1.3-qa-fix | Refunds only from paid invoices | inline | done | 2274371 |
 | 3 | 3.3-qa-fix-2 | 24 h approval test asserts elapsed workflow time | inline | done | 0dba9b1 |
-| 4 | 4.6 | Explicit 503 mapping: Temporal connect failure and no worker for a query | inline | done | pending |
+| 4 | 4.6 | Explicit 503 mapping: Temporal connect failure and no worker for a query | inline | done | 6104277 |
+| 4 | 4.7 | API logs one http_request line per ticket request; uvicorn access log off | inline | done | pending |
 
 ## Goal
 
