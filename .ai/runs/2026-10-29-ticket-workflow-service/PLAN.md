@@ -18,8 +18,8 @@
 | 1 | 1.2 | Domain models and data files | inline | done | 956ad32 |
 | 1 | 1.3 | Business rules | inline | done | 2535557 |
 | 1 | 1.4 | Settings and JSON logging | inline | done | 914f457 |
-| 2 | 2.1 | Tools | inline | done | pending |
-| 2 | 2.2 | Agent loop | inline | todo | — |
+| 2 | 2.1 | Tools | inline | done | b3b2a09 |
+| 2 | 2.2 | Agent loop | inline | done | pending |
 | 2 | 2.3 | Fake model | inline | todo | — |
 | 2 | 2.4 | Real adapter | inline | todo | — |
 | 3 | 3.1 | Fake Helpdesk | inline | todo | — |
