@@ -315,7 +315,7 @@ A deterministic keyword-rule stand-in that **goes through the same loop**: on it
 | `TEMPORAL_NAMESPACE` | `default` | API, worker |
 | `TEMPORAL_TASK_QUEUE` | `tickets` | API, worker |
 | `LLM_PROVIDER` | `fake` | worker — `fake` \| `openai` \| `azure` |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | — / `gpt-4o-mini` | worker (openai) |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | — / `gpt-6-luna` | worker (openai) |
 | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` | — | worker (azure) |
 | `AGENT_MAX_TURNS`, `AGENT_MAX_PARSE_RETRIES` | `6`, `2` | worker |
 | `HELPDESK_FAILURE_RATE`, `HELPDESK_LOST_RESPONSE_RATE`, `HELPDESK_SEED` | `0.2`, `0.1`, unset | worker |
@@ -384,7 +384,7 @@ Missing provider settings with `LLM_PROVIDER≠fake` fail the worker at startup 
 | Q6 | Where do the FR-3 rules run? | Inside the workflow as a pure function, with a data snapshot returned by `decide_ticket`. | Deterministic and impossible to bypass from the activity side. |
 | Q7 | Retry limits? | decide: 3 attempts; act: 5 attempts; parse re-prompts: 2; agent turns: 6. | Bounded, quick to demo, all configurable in one place. |
 | Q8 | What if the Helpdesk is down for every attempt, even for escalation? | Workflow ends `failed` with an explicit reason, still queryable. | No infinite retries; a clear terminal state beats a hidden hang. |
-| Q9 | Default model for real mode? | `gpt-4o-mini` (OpenAI) / deployment name from env (Azure). | Cheap, supports tool calling and JSON mode; one env var to change. |
+| Q9 | Default model for real mode? | `gpt-6-luna` (OpenAI) / deployment name from env (Azure). | Cheap, supports tool calling and JSON mode; one env var to change. Changed on 2026-10-29 from the originally chosen `gpt-4o-mini`, because that model was retired. |
 | Q10 | Temporal image | `temporalio/temporal:1.9.1`, `server start-dev`, UI on 8233. | Single container with server + UI; newest tagged CLI image at spec time. |
 | Q11 | How do tests stay offline? | Test-server binary cached at image build; `docker compose run --rm tests` with `network_mode: none`; host `pytest` offline after first run. | Meets the requirement verifiably while keeping one command. |
 | Q12 | Default failure rates | `HELPDESK_FAILURE_RATE=0.2`, `HELPDESK_LOST_RESPONSE_RATE=0.1`. | Retries are visible in logs and the Temporal UI during the demo without exhausting 5 attempts in practice. |
