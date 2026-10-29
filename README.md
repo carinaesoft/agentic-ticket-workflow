@@ -120,6 +120,8 @@ curl -X POST http://localhost:8000/tickets -H 'Content-Type: application/json' -
 curl http://localhost:8000/tickets/T-6 | jq
 ```
 
+The workflow runs in the background, so a `GET` right after the `POST` usually still shows
+`deciding`; repeat it after a few seconds until `step` is `completed`.
 For T-6 the state ends as `completed` with an `escalate` action whose reason starts with
 `decision rejected by rules:`. `proposed_decision` keeps what the agent suggested and
 `validation_errors` lists the broken rules (see
