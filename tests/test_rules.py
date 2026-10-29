@@ -21,10 +21,10 @@ from app.domain.models import (
 from app.domain.rules import validate_decision
 
 STORE = DataStore()
-TICKET = Ticket(ticket_id="T-2", customer_id="C-101", subject="Charged twice", body="Refund please")
+TICKET = Ticket(ticket_id="T-2", customer_id="C-100", subject="Charged twice", body="Refund please")
 
 
-def ctx_for(customer_id: str = "C-101", extra_invoices: list[Invoice] | None = None):
+def ctx_for(customer_id: str = "C-100", extra_invoices: list[Invoice] | None = None):
     return DecisionContext(
         customer=STORE.get_customer(customer_id),
         invoices=STORE.invoices_for(customer_id) + (extra_invoices or []),
@@ -132,11 +132,11 @@ def test_refund_on_paid_invoice_passes() -> None:
 
 
 def test_refund_on_unpaid_invoice_escalates() -> None:
-    c104 = Ticket(ticket_id="T-4", customer_id="C-104", subject="Refund", body="Refund please")
+    c104 = Ticket(ticket_id="T-4", customer_id="C-400", subject="Refund", body="Refund please")
     out = validate_decision(
         proposal({"kind": "refund", "invoice_id": "INV-4001", "amount_eur": "49.00"}),
         c104,
-        ctx_for("C-104"),
+        ctx_for("C-400"),
     )
     assert_escalated(out, "invoice INV-4001 is not paid (status: overdue)")
     assert out.errors == ["invoice INV-4001 is not paid (status: overdue)"]
@@ -145,16 +145,16 @@ def test_refund_on_unpaid_invoice_escalates() -> None:
 def test_refund_on_another_customers_invoice_escalates() -> None:
     # The scoped snapshot does not contain other customers' invoices at all.
     out = check({"kind": "refund", "invoice_id": "INV-3001", "amount_eur": "10"})
-    assert_escalated(out, "invoice INV-3001 not found for customer C-101")
+    assert_escalated(out, "invoice INV-3001 not found for customer C-100")
 
 
 def test_refund_on_foreign_invoice_inside_snapshot_escalates() -> None:
-    foreign = STORE.invoices_for("C-103")
+    foreign = STORE.invoices_for("C-300")
     out = check(
         {"kind": "refund", "invoice_id": "INV-3001", "amount_eur": "10"},
         ctx=ctx_for(extra_invoices=foreign),
     )
-    assert_escalated(out, "invoice INV-3001 does not belong to customer C-101")
+    assert_escalated(out, "invoice INV-3001 does not belong to customer C-100")
 
 
 def test_refund_on_unknown_invoice_escalates() -> None:

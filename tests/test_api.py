@@ -71,7 +71,7 @@ async def api(env):
 def new_ticket(subject: str = "login") -> dict:
     return {
         "ticket_id": f"T-{uuid.uuid4().hex[:10]}",
-        "customer_id": "C-101",
+        "customer_id": "C-100",
         "subject": subject,
         "body": "Please help.",
     }
@@ -197,9 +197,9 @@ async def test_unknown_ticket_is_404(api) -> None:
 @pytest.mark.parametrize(
     "body",
     [
-        {"ticket_id": "T 1", "customer_id": "C-101", "subject": "s", "body": "b"},
-        {"ticket_id": "T-1", "customer_id": "C-101", "subject": "s"},
-        {"ticket_id": "T-1", "customer_id": "C-101", "subject": "s", "body": "b" * 5001},
+        {"ticket_id": "T 1", "customer_id": "C-100", "subject": "s", "body": "b"},
+        {"ticket_id": "T-1", "customer_id": "C-100", "subject": "s"},
+        {"ticket_id": "T-1", "customer_id": "C-100", "subject": "s", "body": "b" * 5001},
     ],
     ids=["bad-id", "missing-body", "body-too-long"],
 )

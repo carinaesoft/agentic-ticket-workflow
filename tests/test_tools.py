@@ -10,7 +10,7 @@ STORE = DataStore()
 
 @pytest.fixture
 def executor() -> ToolExecutor:
-    return ToolExecutor("C-101", STORE)
+    return ToolExecutor("C-100", STORE)
 
 
 def test_three_tools_in_chat_completions_shape() -> None:
@@ -30,8 +30,8 @@ def test_no_tool_takes_a_customer_argument() -> None:
 
 def test_get_customer_returns_scoped_customer(executor: ToolExecutor) -> None:
     assert executor.run("get_customer", "{}") == {
-        "customer_id": "C-101",
-        "plan": "pro",
+        "customer_id": "C-100",
+        "plan": "business",
         "status": "active",
     }
 
@@ -43,7 +43,7 @@ def test_get_invoices_returns_only_scoped_invoices(executor: ToolExecutor) -> No
 
 
 def test_customer_cannot_be_overridden_by_arguments(executor: ToolExecutor) -> None:
-    result = executor.run("get_invoices", '{"customer_id": "C-103"}')
+    result = executor.run("get_invoices", '{"customer_id": "C-300"}')
     assert result == {"error": "get_invoices takes no arguments"}
 
 
@@ -65,7 +65,7 @@ def test_unknown_tool_returns_error_object(executor: ToolExecutor) -> None:
         ("search_kb", "[1, 2]", "must be a JSON object"),
         ("search_kb", "{}", "non-empty 'query'"),
         ("search_kb", '{"query": 5}', "non-empty 'query'"),
-        ("search_kb", '{"query": "x", "customer_id": "C-103"}', "exactly one argument"),
+        ("search_kb", '{"query": "x", "customer_id": "C-300"}', "exactly one argument"),
     ],
 )
 def test_invalid_arguments_return_error_object(executor, name, arguments, fragment) -> None:

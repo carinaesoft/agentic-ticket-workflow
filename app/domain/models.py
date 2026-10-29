@@ -12,7 +12,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TICKET_ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
 
@@ -71,6 +71,12 @@ class Invoice(BaseModel):
     month: str
     amount_eur: Decimal
     status: str
+
+    @field_validator("amount_eur")
+    @classmethod
+    def _in_cents(cls, value: Decimal) -> Decimal:
+        # The data file stores amounts as JSON numbers (49.0); shown and compared as 49.00.
+        return value.quantize(Decimal("0.01"))
 
 
 class KbArticle(BaseModel):

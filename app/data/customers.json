@@ -1,7 +1,6 @@
 [
-  {"customer_id": "C-101", "name": "Northwind Studio", "plan": "pro", "status": "active"},
-  {"customer_id": "C-102", "name": "Blue Harbor Cafe", "plan": "free", "status": "active"},
-  {"customer_id": "C-103", "name": "Orbital Logistics", "plan": "enterprise", "status": "active"},
-  {"customer_id": "C-104", "name": "Maple Print Shop", "plan": "pro", "status": "suspended"},
-  {"customer_id": "C-105", "name": "Quiet Pine Books", "plan": "free", "status": "active"}
+  {"customer_id": "C-100", "name": "Northwind Bakery", "plan": "business", "status": "active"},
+  {"customer_id": "C-200", "name": "Contoso Labs", "plan": "free", "status": "active"},
+  {"customer_id": "C-300", "name": "Fabrikam Logistics", "plan": "enterprise", "status": "active"},
+  {"customer_id": "C-400", "name": "Tailspin Toys", "plan": "business", "status": "suspended"}
 ]

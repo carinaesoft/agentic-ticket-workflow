@@ -39,7 +39,7 @@ REPLY = {"kind": "reply", "message": "Use the reset link.", "article_ids": ["KB-
 REFUND = {"kind": "refund", "invoice_id": "INV-1002", "amount_eur": "49.00"}
 
 
-def ticket(customer_id: str = "C-101") -> Ticket:
+def ticket(customer_id: str = "C-100") -> Ticket:
     return Ticket(
         ticket_id=f"T-{uuid.uuid4().hex[:8]}",
         customer_id=customer_id,
@@ -48,7 +48,7 @@ def ticket(customer_id: str = "C-101") -> Ticket:
     )
 
 
-def decide_output(action: dict[str, Any], customer_id: str = "C-101", **decision) -> DecideOutput:
+def decide_output(action: dict[str, Any], customer_id: str = "C-100", **decision) -> DecideOutput:
     return DecideOutput(
         decision=ProposedDecision.model_validate(
             {"category": "billing", "priority": "high", "action": action, **decision}

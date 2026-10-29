@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 from app.domain.models import Customer, Invoice, KbArticle
@@ -53,5 +54,6 @@ class DataStore:
 
 
 def _load(path: Path):
+    # JSON numbers are read as Decimal, so an amount such as 49.0 is exact, never a float.
     with path.open(encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(f, parse_float=Decimal)

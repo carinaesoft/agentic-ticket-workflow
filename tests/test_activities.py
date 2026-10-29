@@ -16,7 +16,7 @@ from app.domain.models import ActionRequest, CloseAction, RefundAction, Ticket
 from tests.scripted_model import ScriptedModel, answer
 
 STORE = DataStore()
-T1 = Ticket(ticket_id="T-1", customer_id="C-102", subject="Cannot log in", body="forgot password")
+T1 = Ticket(ticket_id="T-1", customer_id="C-200", subject="Cannot log in", body="forgot password")
 
 
 def activities(model=None, helpdesk=None) -> TicketActivities:
@@ -40,7 +40,7 @@ async def test_fake_llm_t1_gives_reply_decision_and_context() -> None:
     out = await ActivityEnvironment().run(activities().decide_ticket, T1)
     assert out.decision.action.kind == "reply"
     assert out.decision.category == "account"
-    assert out.context.customer.customer_id == "C-102"
+    assert out.context.customer.customer_id == "C-200"
     assert out.context.kb_ids == STORE.kb_ids()
 
 
