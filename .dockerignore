@@ -1,0 +1,13 @@
+.git
+.github
+.ai
+.agents
+.claude
+.venv
+.env
+.temporal-test-server
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+*.egg-info
