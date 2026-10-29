@@ -133,7 +133,61 @@ Status codes:
 
 ### Example run
 
-Results of a recorded run of scripts/demo.sh are added here after the end-to-end verification.
+Recorded on 2026-10-29 on a Linux host (Docker 29, Compose v5), default settings
+(fake LLM, `HELPDESK_FAILURE_RATE=0.2`, `HELPDESK_LOST_RESPONSE_RATE=0.1`, no seed):
+`docker compose up -d --build`, then `scripts/demo.sh`.
+
+```
+== POST /tickets for every sample ticket
+POST T-1  -> 202 {"ticket_id":"T-1","workflow_id":"ticket-T-1","duplicate":false}
+...
+POST T-7  -> 202 {"ticket_id":"T-7","workflow_id":"ticket-T-7","duplicate":false}
+
+== POST T-1 again (duplicate: same workflow, nothing processed twice)
+POST T-1  -> 200 {"ticket_id":"T-1","workflow_id":"ticket-T-1","duplicate":true}
+
+== Approving the T-2 refund
+POST T-2/approval -> 202 {"ticket_id":"T-2","workflow_id":"ticket-T-2","approved":true}
+
+== Final state of every ticket
+{"ticket_id":"T-1","step":"completed","proposed":"reply","action":"reply","detail":"[\"KB-1\"]","result":"reply sent to customer"}
+{"ticket_id":"T-2","step":"completed","proposed":"refund","action":"refund","detail":"INV-1002","result":"refund of 49.00 EUR issued for INV-1002"}
+{"ticket_id":"T-3","step":"completed","proposed":"escalate","action":"escalate","detail":"outage reported by enterprise customer","result":"escalated to a human agent"}
+{"ticket_id":"T-4","step":"completed","proposed":"reply","action":"reply","detail":"[\"KB-4\"]","result":"reply sent to customer"}
+{"ticket_id":"T-5","step":"completed","proposed":"close","action":"close","detail":"not a support request","result":"ticket closed"}
+{"ticket_id":"T-6","step":"completed","proposed":"refund","action":"escalate","detail":"decision rejected by rules: refund amount 5000.00 exceeds invoice INV-1001 amount 49.00","result":"escalated to a human agent"}
+{"ticket_id":"T-7","step":"completed","proposed":null,"action":"escalate","detail":"unknown customer C-999","result":"escalated to a human agent"}
+```
+
+| Ticket | Expected | Observed |
+|---|---|---|
+| T-1 | reply citing KB-1 | reply `[KB-1]`, completed |
+| T-2 | refund INV-1002 49.00 after approval | waited in `awaiting_approval`, approved, one refund of 49.00 EUR |
+| T-3 | escalate "outage reported by enterprise customer" | same, completed |
+| T-4 | reply citing KB-4, mentions overdue INV-4001 | reply `[KB-4]`, completed (the demo does not print the message text; `tests/test_fake_llm.py` checks INV-4001) |
+| T-5 | close "not a support request" | same, completed |
+| T-6 | proposed refund 5000.00 → escalated by the rules | same; `proposed_decision` kept for audit |
+| T-7 | escalate "unknown customer C-999", no model call | same; `proposed_decision` is `null` |
+| T-1 again | `200`, `duplicate: true`, no second run | same; one `decide_started` for T-1 in the logs |
+
+The injected Helpdesk failures were visible: T-1, T-2, T-4 and T-7 each hit a transient
+error and succeeded on the retry; every ticket shows exactly one `action_executed`.
+`temporal workflow list` showed the seven `ticket-T-*` workflows as `Completed`, and the web
+UI answered on port 8233.
+
+Logs for one ticket, `docker compose logs worker api | grep T-2`: 21 JSON lines, every one
+with `"ticket_id": "T-2"` and `"workflow_id": "ticket-T-2"`. An excerpt (worker and API):
+
+```
+{"ts": "2026-10-29T15:49:07.197+00:00", "level": "INFO", "logger": "app.api", "event": "approval_sent", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true, "reviewer": "demo-reviewer"}
+{"ts": "2026-10-29T15:49:07.200+00:00", "level": "INFO", "logger": "temporalio.workflow", "event": "approval_received", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "approved": true}
+{"ts": "2026-10-29T15:49:07.204+00:00", "level": "WARNING", "logger": "temporalio.activity", "event": "helpdesk_transient_error", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 1, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "error": "helpdesk temporarily unavailable"}
+{"ts": "2026-10-29T15:49:08.212+00:00", "level": "INFO", "logger": "temporalio.activity", "event": "action_executed", "ticket_id": "T-2", "workflow_id": "ticket-T-2", "attempt": 2, "activity": "execute_action", "action_kind": "refund", "key": "ticket-T-2:refund", "helpdesk_reference": "HD-00007"}
+```
+
+`docker compose run --rm tests` (service with `network_mode: none`): `173 passed in 3.52s`.
+Inside that container a connection attempt to `pypi.org` fails with
+`Temporary failure in name resolution`, so the suite ran without network access.
 
 ## Architecture
 
