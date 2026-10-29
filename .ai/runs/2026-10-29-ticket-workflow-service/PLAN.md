@@ -14,7 +14,7 @@
 
 | Phase | Step | Title | Exec | Status | Commit |
 |-------|------|-------|------|--------|--------|
-| 1 | 1.1 | Project skeleton | inline | todo | — |
+| 1 | 1.1 | Project skeleton | inline | done | pending |
 | 1 | 1.2 | Domain models and data files | inline | todo | — |
 | 1 | 1.3 | Business rules | inline | todo | — |
 | 1 | 1.4 | Settings and JSON logging | inline | todo | — |

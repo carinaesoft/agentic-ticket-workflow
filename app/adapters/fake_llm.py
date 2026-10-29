@@ -1,0 +1,1 @@
+"""Deterministic fake chat model."""

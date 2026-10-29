@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-ticket-workflow"
+version = "0.1.0"
+description = "Support-ticket triage with an LLM agent, guarded by rules and run as Temporal workflows"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "temporalio==1.35.0",
+    "fastapi==0.162.0",
+    "uvicorn==0.54.0",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.2",
+    "openai==3.41.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1",
+    "httpx==0.28.1",
+    "ruff==0.17.3",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.data" = ["*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
