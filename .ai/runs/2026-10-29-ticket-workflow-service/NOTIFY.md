@@ -16,3 +16,8 @@
 ## 2026-10-29T15:18:09Z — checkpoint 2
 - Steps 2.1–2.4 (b3b2a09..82deb65) verified: ruff check, ruff format --check, pytest (113 passed).
 - Decision: OpenAI requests send `reasoning_effort="none"` (needed for function calling with the default model); Azure requests keep the spec shape.
+
+## 2026-10-29T15:26:08Z — checkpoint 3
+- Steps 3.1–3.4 (f6957ae..08c3039) verified: ruff check, ruff format --check, pytest (142 passed).
+- Decision: `tests/conftest.py` landed in 3.3 (PLAN.md Deviations 4).
+- Decision: the JSON formatter derives `ticket_id` from a `ticket-…` workflow ID, so SDK-emitted lines (activity retry warnings) also carry both IDs.

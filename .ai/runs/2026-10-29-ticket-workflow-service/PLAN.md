@@ -25,7 +25,7 @@
 | 3 | 3.1 | Fake Helpdesk | inline | done | f6957ae |
 | 3 | 3.2 | Activities | inline | done | 6546eba |
 | 3 | 3.3 | Workflow | inline | done | 2523651 |
-| 3 | 3.4 | Worker and sample scenarios | inline | done | pending |
+| 3 | 3.4 | Worker and sample scenarios | inline | done | 08c3039 |
 | 4 | 4.1 | API | inline | todo | — |
 | 4 | 4.2 | Containers | inline | todo | — |
 | 4 | 4.3 | Demo script | inline | todo | — |
