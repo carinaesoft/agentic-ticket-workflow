@@ -16,8 +16,8 @@
 |-------|------|-------|------|--------|--------|
 | 1 | 1.1 | Project skeleton | inline | done | 3051f7a |
 | 1 | 1.2 | Domain models and data files | inline | done | 956ad32 |
-| 1 | 1.3 | Business rules | inline | done | pending |
-| 1 | 1.4 | Settings and JSON logging | inline | todo | — |
+| 1 | 1.3 | Business rules | inline | done | 2535557 |
+| 1 | 1.4 | Settings and JSON logging | inline | done | pending |
 | 2 | 2.1 | Tools | inline | todo | — |
 | 2 | 2.2 | Agent loop | inline | todo | — |
 | 2 | 2.3 | Fake model | inline | todo | — |
