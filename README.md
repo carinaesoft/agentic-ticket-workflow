@@ -460,11 +460,31 @@ This is a design only; the repository contains no infrastructure code.
 
 ## How AI coding assistants were used
 
-TODO: describe which assistants were used and for what.
+Almost all of the code, tests and docs in this repository were written by AI coding agents (Claude Code with Claude Opus). My job was to set the direction, make the product decisions, split the work and check the results. The agents followed a fixed, skill-based development process (spec → implementation → review → QA). Its configuration is in `.ai/` and `SDLC.md`, and the full run record is in `.ai/runs/`.
 
-### Example: a wrong output and how it was caught
+**How the work was organised**
 
-TODO: add a real example from this project.
+1. **Spec first.** An agent turned my brief into a written spec with numbered requirements, a phase plan and a test for every requirement (`.ai/specs/`). Before any code was written, I checked the spec against my own list of requirements.
+2. **Implementation in small steps.** An agent implemented the plan one commit per step, with a checkpoint after each phase: lint, format and tests had to be green before the next phase started.
+3. **Independent review.** A fresh agent reviewed the code. It saw only the spec and the code, not the implementer's notes, and it tried to break the rules and the approval gate on purpose.
+4. **Independent QA on a fresh clone.** Another fresh agent cloned the repository from GitHub and followed this README word for word: `docker compose up`, the sample tickets, duplicate submissions, approvals, high Helpdesk failure rates, a stopped worker and the offline test run.
+5. **Narrow fix runs.** Each group of findings was fixed in its own short agent session. Then a new review and QA ran.
+
+**Decisions I made myself:** refunds are allowed only from paid invoices; a rejected refund gets a reply, not a second escalation; approvals go through a Signal with a Query pre-check; the agent runs as one activity, not one activity per tool call; no real LLM key is used (see Limitations). I also changed the process during the work, and that is the first example below.
+
+**Where the AI output was wrong, and how it was caught**
+
+- **The process itself.** At first I let a single agent session implement all five phases in one go. It finished quickly, but no one could check it between phases. I stopped trusting the result. From then on I ran one phase or one fix group per session, and review and QA ran in separate sessions without the implementer's context. That second check found the issues below that the implementer's own review had missed.
+- **Invented test in the README.** A sub-agent wrote a README paragraph about an "adversarial model" test that did not exist yet. The implementing agent caught it when it checked the README against the code, and then added the test (`35668e6`).
+- **A refund could go out while the ticket showed `failed`.** QA found this with a high Helpdesk failure rate. If the Helpdesk applied a refund in the last retry and then lost the response, the workflow marked the ticket `failed`. An operator could then refund it a second time by hand. The fix: after the retries run out, the workflow asks the Helpdesk, by idempotency key, whether the action was recorded (`f3450b7`).
+- **The README test command did not work.** QA ran it word for word: `pip` does not exist in a `uv venv`. The fix was `uv pip install` (`ffb3bf2`).
+- **Money validation was too loose.** The review agent found that the rules accepted amounts like `0.0000001` and `1E+1` (`307c1ca`). It also found that the prompt-envelope escaping only handled lowercase tags (`d9e8d6e`).
+- **Fragile error handling found by QA.** With the worker stopped, the API answered "workflow service unavailable" instead of "no worker available", because the code matched on the text of the error message. A live test then showed that a query sent right after the worker stops fails with a different gRPC code than the one the fix expected, so the fix itself needed one more round (`6104277`, `eeae1b6`).
+- **Logs missing IDs.** Running the stack showed that uvicorn's startup and access log lines were plain text without `ticket_id`/`workflow_id` (`92fa153`, `07ef3cb`). A later fix added a new log line that again had no IDs, and the re-review caught it (`20febe6`).
+- **Outdated defaults in the spec.** The spec proposed `gpt-4o-mini`. The implementer checked OpenAI's deprecation page, which lists that model as scheduled for retirement, and switched the default. The spec also overlooked that Temporal's time-skipping test server downloads a binary on first use, which would break "tests need no network". I caught that before implementation. The fix: the binary is baked into the test image, and the suite runs with `network_mode: none`.
+- **LLM adapter parameters.** The implementer sent `temperature=0` together with `reasoning_effort="none"` and JSON mode. The tests passed because they use a fake client. The independent reviewer suspected that the real API would reject this request, but it cited secondary sources. I asked for a check against the official OpenAI and Azure docs only. That check confirmed that `reasoning_effort="none"` is required for tool calling with this model. It also found that the docs do not settle `temperature` or JSON mode for this model, and that one Azure page contradicts itself. The adapter now sends only the parameters the docs clearly allow (`b337881`). It also no longer retries 4xx errors from the provider (`c983b21`). The real model was never called, so this is still the least proven part (see Limitations).
+
+**What I take from it:** the agents write correct-looking code fast. The mistakes were almost never in the main flow. They were at the edges: the last retry, logging done too early, a README that promised more than the code did. Those were found only by a check that did not share the author's context: an independent review, QA on a fresh clone, or actually running the stack.
 
 ## Assumptions, limitations and next steps
 

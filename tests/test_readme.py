@@ -29,7 +29,8 @@ def test_readme_has_a_mermaid_diagram():
     assert "```mermaid" in README
 
 
-def test_ai_assistant_section_is_still_a_skeleton():
+def test_ai_assistant_section_is_written():
     section = README.split("## How AI coding assistants were used")[1]
     section = section.split("\n## ")[0]
-    assert "TODO" in section
+    assert "TODO" not in section
+    assert "Where the AI output was wrong" in section
