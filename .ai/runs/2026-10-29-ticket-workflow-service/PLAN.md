@@ -20,8 +20,8 @@
 | 1 | 1.4 | Settings and JSON logging | inline | done | 914f457 |
 | 2 | 2.1 | Tools | inline | done | b3b2a09 |
 | 2 | 2.2 | Agent loop | inline | done | cc2812c |
-| 2 | 2.3 | Fake model | inline | done | pending |
-| 2 | 2.4 | Real adapter | inline | todo | — |
+| 2 | 2.3 | Fake model | inline | done | 5898b76 |
+| 2 | 2.4 | Real adapter | inline | done | pending |
 | 3 | 3.1 | Fake Helpdesk | inline | todo | — |
 | 3 | 3.2 | Activities | inline | todo | — |
 | 3 | 3.3 | Workflow | inline | todo | — |
