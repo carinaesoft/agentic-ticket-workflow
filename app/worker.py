@@ -2,8 +2,8 @@
 
 Hosts ``TicketWorkflow`` and its activities on the ``tickets`` task queue. It owns the
 read-only reference data, the chat model selected by ``LLM_PROVIDER`` and the in-memory
-fake Helpdesk. Missing provider settings stop the process at startup with one JSON error
-line and exit code 2.
+fake Helpdesk. Invalid settings and missing provider settings stop the process at startup
+with one JSON error line and exit code 2.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import signal
 import sys
 from datetime import timedelta
 
+from pydantic import ValidationError
 from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.worker import Worker
@@ -72,8 +73,27 @@ async def connect(settings: Settings) -> Client:
 CONFIG_ERROR_EXIT_CODE = 2
 
 
+def settings_error(err: ValidationError) -> str:
+    """One readable line naming each invalid variable; input values are left out."""
+    return "; ".join(
+        f"{'.'.join(str(part) for part in error['loc']).upper()}: {error['msg']}"
+        for error in err.errors(include_input=False, include_url=False)
+    )
+
+
 async def main() -> int:
-    settings = Settings()
+    try:
+        settings = Settings()
+    except ValidationError as err:
+        configure_logging("INFO")
+        log.error(
+            "worker_config_error",
+            extra={
+                "error": f"invalid settings: {settings_error(err)}",
+                "hint": "fix the variables (shell or .env); see .env.example",
+            },
+        )
+        return CONFIG_ERROR_EXIT_CODE
     configure_logging(settings.log_level)
     try:
         activities = build_activities(settings)

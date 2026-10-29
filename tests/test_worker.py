@@ -55,3 +55,28 @@ def test_worker_without_provider_settings_logs_one_json_error_and_exits() -> Non
     entry = json.loads(line)
     assert (entry["level"], entry["event"]) == ("ERROR", "worker_config_error")
     assert entry["error"] == "LLM_PROVIDER=openai requires OPENAI_API_KEY"
+
+
+def test_worker_with_invalid_settings_logs_one_json_error_and_exits() -> None:
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if not name.startswith(("OPENAI_", "AZURE_", "LLM_", "LOG_", "HELPDESK_", "AGENT_"))
+    }
+    result = subprocess.run(
+        [sys.executable, "-m", "app.worker"],
+        env={**env, "HELPDESK_FAILURE_RATE": "2", "AGENT_MAX_TURNS": "zero"},
+        cwd=Path(__file__).parents[1],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 2
+    assert result.stderr == ""
+    [line] = result.stdout.splitlines()
+    entry = json.loads(line)
+    assert (entry["level"], entry["event"]) == ("ERROR", "worker_config_error")
+    assert entry["error"].startswith("invalid settings: ")
+    assert "HELPDESK_FAILURE_RATE: Input should be less than or equal to 1" in entry["error"]
+    assert "AGENT_MAX_TURNS" in entry["error"]
+    assert "zero" not in entry["error"]  # values are not echoed

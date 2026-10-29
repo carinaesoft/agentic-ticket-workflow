@@ -376,7 +376,8 @@ them without secrets.
 | `HELPDESK_SEED` | unset | Seed for reproducible failure injection. |
 | `LOG_LEVEL` | `INFO` | Log level (JSON lines on stdout). |
 
-Missing provider settings stop the worker at startup with a message naming the variables.
+Invalid settings (for example `HELPDESK_FAILURE_RATE=2`) and missing provider settings stop the
+worker at startup with one JSON error line naming the variables, and exit code 2.
 
 **Default model.** The default `OPENAI_MODEL` is `gpt-6-luna`, not `gpt-4o-mini`. OpenAI's
 deprecations page (checked 2026-10-29) lists `gpt-4o-mini` for removal on 2027-01-14 and
