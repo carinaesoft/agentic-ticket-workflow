@@ -57,6 +57,9 @@ services:
   worker:
     <<: *app
     command: ["python", "-m", "app.worker"]
+    # A bad setting exits with code 2 on every start: give up after 3 restarts instead of
+    # looping forever.
+    restart: on-failure:3
 
   # docker compose run --rm tests  — the whole suite, offline and keyless. pull_policy: build
   # rebuilds the image on every run (layer cache keeps it fast), so it tests the current code.

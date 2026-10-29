@@ -40,3 +40,8 @@ def test_compose_defaults_match_settings_and_hold_no_secrets(monkeypatch) -> Non
 def test_tests_service_rebuilds_on_every_run() -> None:
     tests_service = COMPOSE.read_text().split("\n  tests:\n", 1)[1]
     assert "\n    pull_policy: build\n" in tests_service
+
+
+def test_worker_restarts_are_bounded() -> None:
+    worker_service = COMPOSE.read_text().split("\n  worker:\n", 1)[1].split("\n\n", 1)[0]
+    assert "\n    restart: on-failure:3\n" in worker_service + "\n"

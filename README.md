@@ -402,8 +402,9 @@ them without secrets.
 
 Invalid settings (for example `HELPDESK_FAILURE_RATE=2`) and missing provider settings stop the
 worker at startup with one JSON error line naming the variables, and exit code 2. Under
-Compose (`restart: unless-stopped`) the worker container then restarts and logs that line
-again until the setting is fixed.
+Compose (`restart: on-failure:3`) the worker container is restarted at most 3 times, logs
+that line each time, and then stays stopped until the setting is fixed and the worker is
+started again.
 
 **Default model.** The default `OPENAI_MODEL` is `gpt-6-luna`, not `gpt-4o-mini`. OpenAI's
 deprecations page (checked 2026-10-29) lists `gpt-4o-mini` for removal on 2027-01-14 and
