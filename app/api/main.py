@@ -177,7 +177,12 @@ def _not_awaiting(current: WorkflowStatus, extra: dict) -> JSONResponse:
 
 
 async def _query_status(handle: WorkflowHandle) -> WorkflowStatus:
-    return await _temporal(handle.query(TicketWorkflow.status, rpc_timeout=QUERY_TIMEOUT))
+    try:
+        return await _temporal(handle.query(TicketWorkflow.status, rpc_timeout=QUERY_TIMEOUT))
+    except (WorkflowQueryFailedError, WorkflowQueryRejectedError) as err:
+        # The formatter derives ticket_id from the ``ticket-…`` workflow ID.
+        log.error("workflow_query_failed", extra={"workflow_id": handle.id, "error": str(err)})
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, QUERY_FAILED) from err
 
 
 async def _temporal[T](call: Awaitable[T]) -> T:
@@ -186,9 +191,6 @@ async def _temporal[T](call: Awaitable[T]) -> T:
         return await call
     except RPCError as err:
         raise _rpc_http_error(err) from err
-    except (WorkflowQueryFailedError, WorkflowQueryRejectedError) as err:
-        log.error("workflow_query_failed", extra={"error": str(err)})
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, QUERY_FAILED) from err
     except RuntimeError as err:
         # A lazy client that cannot reach the server raises "Failed client connect".
         if "client connect" not in str(err):

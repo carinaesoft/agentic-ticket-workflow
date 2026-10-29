@@ -224,6 +224,8 @@ class UnreachableClient:
         error = self.error
 
         class Handle:
+            id = workflow_id
+
             async def query(self, *args, **kwargs):
                 raise error
 
@@ -308,7 +310,7 @@ async def test_approval_racing_with_workflow_completion_is_409() -> None:
     [WorkflowQueryFailedError("workflow task failing"), WorkflowQueryRejectedError(None)],
     ids=["failed", "rejected"],
 )
-async def test_query_failures_are_503(error) -> None:
+async def test_query_failures_are_503(error, caplog) -> None:
     app = create_app(client=UnreachableClient(error), settings=Settings())
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -316,3 +318,5 @@ async def test_query_failures_are_503(error) -> None:
         response = await http.get("/tickets/T-1")
     assert response.status_code == 503
     assert response.json() == {"detail": "ticket state cannot be read right now"}
+    record = next(r for r in caplog.records if r.getMessage() == "workflow_query_failed")
+    assert record.workflow_id == "ticket-T-1"

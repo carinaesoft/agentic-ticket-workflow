@@ -37,7 +37,8 @@
 | 5 | 5.3 | End-to-end verification | inline | done | 3e06eb5 |
 | 1 | 1.3-review-fix | Refund amounts limited to whole cents | inline | done | 307c1ca |
 | 2 | 2.2-review-fix | Case-insensitive envelope escaping | inline | done | d9e8d6e |
-| 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | done | pending |
+| 4 | 4.1-review-fix | Approval race and query failures map to 409/503 | inline | done | aaa22f0 |
+| 4 | 4.4-review-fix | Ticket IDs on the query-failure log line | inline | done | pending |
 
 ## Goal
 
@@ -105,6 +106,7 @@ Step titles match the spec's Implementation Plan; each Step is one commit and le
 - **1.3-review-fix Refund amounts limited to whole cents** — the rules accepted amounts such as `0.0000001` or `1E+1`; amounts with more than two decimal places now escalate, valid ones are normalised to cents, and amounts too large to express in cents escalate.
 - **2.2-review-fix Case-insensitive envelope escaping** — `</UNTRUSTED_TICKET>` (or with spaces) reached the model unescaped although the README says the ticket cannot close the envelope.
 - **4.1-review-fix Approval race and query failures map to 409/503** — a workflow that closes between the status query and the approval signal answered 404; it now answers 409 with the current step. Query failures (`WorkflowQueryFailedError`/`WorkflowQueryRejectedError`) answered 500; they now answer 503 with a detail.
+- **4.4-review-fix Ticket IDs on the query-failure log line** — found by the re-review: the new `workflow_query_failed` line carried no ticket/workflow ID (FR-19); it is now logged where the workflow handle is known.
 
 ## Deviations from the spec
 
