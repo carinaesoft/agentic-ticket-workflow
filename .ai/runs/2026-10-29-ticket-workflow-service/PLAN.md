@@ -29,7 +29,7 @@
 | 4 | 4.1 | API | inline | done | ea80d6c |
 | 4 | 4.2 | Containers | inline | done | 1fa05f8 |
 | 4 | 4.3 | Demo script | inline | done | 0dadd1e |
-| 4 | 4.4 | JSON logs from uvicorn startup | inline | done | pending |
+| 4 | 4.4 | JSON logs from uvicorn startup | inline | done | 92fa153 |
 | 5 | 5.1 | README | dispatch | todo | — |
 | 5 | 5.2 | CI | dispatch:cheap | todo | — |
 | 5 | 5.3 | End-to-end verification | inline | todo | — |

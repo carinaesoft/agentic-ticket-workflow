@@ -21,3 +21,8 @@
 - Steps 3.1–3.4 (f6957ae..08c3039) verified: ruff check, ruff format --check, pytest (142 passed).
 - Decision: `tests/conftest.py` landed in 3.3 (PLAN.md Deviations 4).
 - Decision: the JSON formatter derives `ticket_id` from a `ticket-…` workflow ID, so SDK-emitted lines (activity retry warnings) also carry both IDs.
+
+## 2026-10-29T15:42:42Z — checkpoint 4
+- Steps 4.1–4.4 (ea80d6c..92fa153) verified: ruff, pytest (162 passed), compose config, offline tests container, Compose smoke run of the demo.
+- Problem: plain-text uvicorn startup lines in the API log (found by the smoke run) → fixed forward as Step 4.4.
+- Decision: host ports stay fixed at 7233/8233/8000 — they are free on this host, so the compose file was not made port-configurable.
