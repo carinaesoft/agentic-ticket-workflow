@@ -9,6 +9,8 @@ from app.config import Settings
 COMPOSE = Path(__file__).parents[1] / "docker-compose.yml"
 INTERPOLATED = re.compile(r"^\s+([A-Z_]+): \$\{([A-Z_]+):-([^}]*)\}$", re.MULTILINE)
 SECRET_MARKERS = ("KEY", "SECRET", "TOKEN", "PASSWORD")
+# Set by Compose on purpose, because only Compose has the volume; unset in ``Settings``.
+COMPOSE_ONLY_DEFAULTS = {"HELPDESK_STORE_PATH": "/srv/helpdesk/store.db"}
 
 
 def compose_settings() -> dict[str, str]:
@@ -29,7 +31,10 @@ def test_compose_defaults_match_settings_and_hold_no_secrets(monkeypatch) -> Non
         monkeypatch.delenv(name, raising=False)
     defaults = Settings()
     for name, value in compose_settings().items():
-        if any(marker in name for marker in SECRET_MARKERS):
+        if name in COMPOSE_ONLY_DEFAULTS:
+            assert value == COMPOSE_ONLY_DEFAULTS[name], name
+            assert getattr(defaults, name.lower()) is None, name
+        elif any(marker in name for marker in SECRET_MARKERS):
             assert value == "", f"{name} must default to empty"
         elif value:
             assert str(getattr(defaults, name.lower())) == value, name

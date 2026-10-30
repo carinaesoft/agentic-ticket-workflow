@@ -6,13 +6,17 @@ but the caller saw an error). An idempotency key makes a retried call return the
 result instead of repeating the effect, and ``lookup`` answers whether an action was
 recorded under a key (used to reconcile after every attempt lost its response).
 
-The store lives in this process's memory: the at-most-once guarantee holds within one
-worker process only. A real Helpdesk would honour the key on its side.
+The store is one SQLite table, in the file at ``store_path``: the at-most-once guarantee then
+survives a new process and holds between instances on the same file. Without a path it lives
+in this instance's memory and ends with it. A real Helpdesk would honour the key on its side.
 """
 
 from __future__ import annotations
 
 import random
+import sqlite3
+
+from pydantic import TypeAdapter
 
 from app.domain.models import (
     Action,
@@ -23,6 +27,11 @@ from app.domain.models import (
     RefundAction,
     ReplyAction,
 )
+
+# How long a call waits for another instance's transaction on the same file.
+STORE_TIMEOUT_SECONDS = 5.0
+
+_ACTION: TypeAdapter[Action] = TypeAdapter(Action)
 
 
 class HelpdeskTransientError(Exception):
@@ -39,29 +48,47 @@ class FakeHelpdesk:
         failure_rate: float = 0.0,
         lost_response_rate: float = 0.0,
         rng: random.Random | None = None,
+        store_path: str | None = None,
     ) -> None:
         self.failure_rate = failure_rate
         self.lost_response_rate = lost_response_rate
         self._rng = rng or random.Random()
-        self._results: dict[str, tuple[Action, ActionResult]] = {}
+        # Activities are async and run on the worker's event loop, so one connection is enough;
+        # sqlite3 refuses a use from another thread. Autocommit: BEGIN IMMEDIATE is explicit.
+        self._db = sqlite3.connect(
+            store_path or ":memory:", timeout=STORE_TIMEOUT_SECONDS, isolation_level=None
+        )
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS helpdesk_actions "
+            "(key TEXT PRIMARY KEY, action_json TEXT NOT NULL, result_json TEXT NOT NULL)"
+        )
         self.replies: list[ReplyAction] = []
         self.refunds: list[RefundAction] = []
         self.escalations: list[EscalateAction] = []
         self.closures: list[CloseAction] = []
 
     def perform(self, key: str, action: Action) -> ActionResult:
-        stored = self._results.get(key)
-        if stored is not None:
-            stored_action, result = stored
-            if stored_action != action:
-                raise HelpdeskRejected(f"idempotency key {key} was used for a different action")
-            return result
+        # The write lock is taken before the key is checked, so two instances cannot both miss
+        # it. Leaving the block commits; an exception rolls back.
+        self._db.execute("BEGIN IMMEDIATE")
+        with self._db:
+            stored = self._db.execute(
+                "SELECT action_json, result_json FROM helpdesk_actions WHERE key = ?", (key,)
+            ).fetchone()
+            if stored is not None:
+                if _ACTION.validate_json(stored[0]) != action:
+                    raise HelpdeskRejected(f"idempotency key {key} was used for a different action")
+                return ActionResult.model_validate_json(stored[1])
 
-        if self._rng.random() < self.failure_rate:
-            raise HelpdeskTransientError("helpdesk temporarily unavailable")
+            if self._rng.random() < self.failure_rate:
+                raise HelpdeskTransientError("helpdesk temporarily unavailable")
 
-        result = self._apply(key, action)
-        self._results[key] = (action, result)
+            [count] = self._db.execute("SELECT COUNT(*) FROM helpdesk_actions").fetchone()
+            result = self._apply(key, action, f"HD-{count + 1:05d}")
+            self._db.execute(
+                "INSERT INTO helpdesk_actions (key, action_json, result_json) VALUES (?, ?, ?)",
+                (key, _ACTION.dump_json(action).decode(), result.model_dump_json()),
+            )
 
         if self._rng.random() < self.lost_response_rate:
             raise HelpdeskTransientError("helpdesk response lost after the action was applied")
@@ -69,11 +96,12 @@ class FakeHelpdesk:
 
     def lookup(self, key: str) -> ActionResult | None:
         """The stored result for ``key``, or ``None`` when no action was recorded under it."""
-        stored = self._results.get(key)
-        return stored[1] if stored is not None else None
+        stored = self._db.execute(
+            "SELECT result_json FROM helpdesk_actions WHERE key = ?", (key,)
+        ).fetchone()
+        return ActionResult.model_validate_json(stored[0]) if stored is not None else None
 
-    def _apply(self, key: str, action: Action) -> ActionResult:
-        reference = f"HD-{len(self._results) + 1:05d}"
+    def _apply(self, key: str, action: Action, reference: str) -> ActionResult:
         match action:
             case ReplyAction():
                 self.replies.append(action)

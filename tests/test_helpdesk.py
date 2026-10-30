@@ -1,5 +1,8 @@
+import contextlib
 import random
+import sqlite3
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -96,6 +99,26 @@ def test_key_reused_for_a_different_action_is_rejected() -> None:
     with pytest.raises(HelpdeskRejected):
         helpdesk.perform("k:refund", other)
     assert len(helpdesk.refunds) == 1
+
+
+def test_new_instance_on_the_same_file_returns_the_result_whose_response_was_lost(
+    tmp_path: Path,
+) -> None:
+    path = str(tmp_path / "store.db")
+    first = FakeHelpdesk(lost_response_rate=1.0, rng=random.Random(1), store_path=path)
+    with pytest.raises(HelpdeskTransientError, match="response lost"):
+        first.perform("ticket-T-2:refund", REFUND)
+    recorded = first.lookup("ticket-T-2:refund")
+    assert recorded is not None
+
+    second = FakeHelpdesk(rng=random.Random(1), store_path=path)
+    result = second.perform("ticket-T-2:refund", REFUND)
+
+    assert result.helpdesk_reference == recorded.helpdesk_reference
+    assert len(first.refunds) == 1
+    assert len(second.refunds) == 0
+    with contextlib.closing(sqlite3.connect(path)) as db:
+        assert db.execute("SELECT COUNT(*) FROM helpdesk_actions").fetchone() == (1,)
 
 
 def test_seeded_rng_is_deterministic() -> None:
