@@ -1,9 +1,10 @@
 """Temporal worker entrypoint: ``python -m app.worker``.
 
 Hosts ``TicketWorkflow`` and its activities on the ``tickets`` task queue. It owns the
-read-only reference data, the chat model selected by ``LLM_PROVIDER`` and the in-memory
-fake Helpdesk. Invalid settings and missing provider settings stop the process at startup
-with one JSON error line and exit code 2.
+read-only reference data, the chat model selected by ``LLM_PROVIDER`` and the fake Helpdesk,
+whose store is the file at ``HELPDESK_STORE_PATH`` (in memory when unset). Invalid settings
+and missing provider settings stop the process at startup with one JSON error line and exit
+code 2.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ def build_activities(settings: Settings) -> TicketActivities:
             failure_rate=settings.helpdesk_failure_rate,
             lost_response_rate=settings.helpdesk_lost_response_rate,
             rng=random.Random(settings.helpdesk_seed),
+            store_path=settings.helpdesk_store_path,
         ),
         limits=AgentLimits(
             max_turns=settings.agent_max_turns,

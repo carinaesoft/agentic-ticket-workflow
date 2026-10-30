@@ -36,5 +36,6 @@ class Settings(BaseSettings):
     helpdesk_failure_rate: float = Field(default=0.2, ge=0.0, le=1.0)
     helpdesk_lost_response_rate: float = Field(default=0.1, ge=0.0, le=1.0)
     helpdesk_seed: int | None = None
+    helpdesk_store_path: str | None = None
 
     log_level: str = "INFO"

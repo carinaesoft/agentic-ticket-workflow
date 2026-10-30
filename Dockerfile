@@ -12,7 +12,9 @@ WORKDIR /srv
 COPY pyproject.toml README.md ./
 COPY app ./app
 RUN pip install . \
-    && useradd --create-home --uid 10001 appuser
+    && useradd --create-home --uid 10001 appuser \
+    && mkdir /srv/helpdesk \
+    && chown appuser /srv/helpdesk
 
 USER appuser
 EXPOSE 8000

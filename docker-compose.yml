@@ -28,6 +28,7 @@ x-app: &app
     HELPDESK_FAILURE_RATE: ${HELPDESK_FAILURE_RATE:-0.2}
     HELPDESK_LOST_RESPONSE_RATE: ${HELPDESK_LOST_RESPONSE_RATE:-0.1}
     HELPDESK_SEED: ${HELPDESK_SEED:-}
+    HELPDESK_STORE_PATH: ${HELPDESK_STORE_PATH:-/srv/helpdesk/store.db}
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
   depends_on:
     temporal:
@@ -57,6 +58,8 @@ services:
   worker:
     <<: *app
     command: ["python", "-m", "app.worker"]
+    volumes:
+      - helpdesk-store:/srv/helpdesk
     # A bad setting exits with code 2 on every start: give up after 3 restarts instead of
     # looping forever.
     restart: on-failure:3
@@ -72,3 +75,6 @@ services:
     profiles: ["tests"]
     network_mode: none
     command: ["pytest", "-p", "no:cacheprovider"]
+
+volumes:
+  helpdesk-store:
