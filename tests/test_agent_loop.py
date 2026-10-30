@@ -112,6 +112,16 @@ async def test_ticket_text_appears_only_inside_untrusted_envelope() -> None:
     assert content.endswith("</untrusted_ticket>")
 
 
+def test_system_prompt_states_the_action_guidelines() -> None:
+    # Pins the wording only: what a real model does with it is not provable here.
+    prompt = " ".join(SYSTEM_PROMPT.split())
+    assert "ongoing outage or that the service is unavailable: escalate with a reason" in prompt
+    assert "even when a knowledge-base article matches" in prompt
+    assert "is not an outage" in prompt
+    assert "clearly unrelated to the Northdesk product" in prompt
+    assert "billing: close with a reason. Do not reply and do not offer help." in prompt
+
+
 async def test_tool_calls_are_logged_with_ids(caplog) -> None:
     caplog.set_level("INFO")
     model = ScriptedModel([tool_call("search_kb", {"query": "password"}), answer(REPLY)])

@@ -38,6 +38,14 @@ When you have enough context, answer with one JSON object and nothing else:
   - {{"kind": "escalate", "reason": "<why a human must take over>"}}
   - {{"kind": "close", "reason": "<why no action is needed>"}}
 
+Choosing the action:
+- The customer reports an ongoing outage or that the service is unavailable: escalate with a
+  reason, even when a knowledge-base article matches. An article alone does not resolve it.
+  A problem explained by their own account, such as a forgotten password or a suspended
+  account, is not an outage.
+- The message is clearly unrelated to the Northdesk product, the customer's account or
+  billing: close with a reason. Do not reply and do not offer help.
+
 A refund never exceeds the invoice amount and always waits for a human approval.
 Allowed action kinds: {_values(ActionKind)}.
 """
