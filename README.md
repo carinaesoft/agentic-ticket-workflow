@@ -14,10 +14,12 @@ fake LLM mode (a deterministic, rule-based stand-in for the model).
 ```bash
 docker compose up -d --build     # Temporal dev server + web UI, API, worker
 scripts/demo.sh                  # posts the sample tickets, approves the T-2 refund, prints results
-docker compose down              # stop and remove the containers
+docker compose down -v           # stop and remove the containers and the Helpdesk store
 ```
 
-`scripts/demo.sh` needs `curl` and `jq` on the host.
+`scripts/demo.sh` needs `curl` and `jq` on the host. Use `-v` for a clean start: Temporal's data
+goes with the containers, but the fake Helpdesk's store stays on its volume and would answer
+a reused ticket number with the old result.
 
 | What | Where |
 |---|---|
@@ -382,10 +384,12 @@ cannot break workflow replay. The agent loop limits are the exception: `AGENT_MA
   `{workflow_id}:{kind}`, for example `ticket-T-2:refund`. The key is the same on every
   retry, so a retried call returns the stored result instead of repeating the effect. This
   also covers the case where the Helpdesk applied the action but the response was lost
-  (injected by `HELPDESK_LOST_RESPONSE_RATE`). **Limitation:** the fake keeps this store in
-  worker memory. The guarantee holds within one worker process; after a worker restart, or
-  with several workers, a retry could repeat the effect. A real Helpdesk would have to honour
-  the key on its side.
+  (injected by `HELPDESK_LOST_RESPONSE_RATE`). The key and the result are durable in the fake
+  (a SQLite file at `HELPDESK_STORE_PATH`, on a named volume under Compose), and a real
+  Helpdesk honours the key on its side. The key check, the Helpdesk number and the write are
+  one transaction, so workers sharing the file cannot both apply an action. **Limitation:**
+  with `HELPDESK_STORE_PATH` unset the store is in memory and the guarantee ends with the
+  worker process.
 - **Duplicate tickets.** The workflow ID is deterministic, `ticket-{ticket_id}`. The API
   starts it with `REJECT_DUPLICATE` (no reuse after completion) and conflict policy `FAIL`
   (no second run while running). A second `POST` raises `WorkflowAlreadyStartedError`, which
@@ -454,6 +458,7 @@ them without secrets.
 | `HELPDESK_FAILURE_RATE` | `0.2` | Probability (0.0-1.0) that the fake Helpdesk fails a call before applying it. |
 | `HELPDESK_LOST_RESPONSE_RATE` | `0.1` | Probability that it applies the action and then fails the response. |
 | `HELPDESK_SEED` | unset | Seed for reproducible failure injection. |
+| `HELPDESK_STORE_PATH` | unset | SQLite file for the fake Helpdesk's idempotency keys and results; unset, they stay in memory. Compose defaults to `/srv/helpdesk/store.db`, on a named volume mounted only in the worker. |
 | `LOG_LEVEL` | `INFO` | Log level (JSON lines on stdout). |
 
 Invalid settings (for example `HELPDESK_FAILURE_RATE=2`) and missing provider settings stop the
@@ -514,8 +519,8 @@ This is a design only; the repository contains no infrastructure code.
   secret references. No keys in images, repositories or plain settings.
 - **Scaling:** scale workers on task-queue backlog (schedule-to-start latency or backlog
   count, via a KEDA scaler), not CPU. The API scales independently.
-- **Helpdesk:** replace the in-memory fake with the real Helpdesk client, which must honour
-  the idempotency key so retries and worker restarts cannot repeat an action.
+- **Helpdesk:** replace the fake and its SQLite file with the real Helpdesk client, which must
+  honour the idempotency key so retries and worker restarts cannot repeat an action.
 - **What to monitor:**
   - Schedule-to-start latency per task queue (is the worker pool keeping up?).
   - Activity failure and retry rates for `decide_ticket` and `execute_action`.
@@ -553,6 +558,7 @@ Almost all of the code, tests and docs in this repository were written by AI cod
 - **Outdated defaults in the spec.** The spec proposed `gpt-4o-mini`. The implementer checked OpenAI's deprecation page, which lists that model as scheduled for retirement, and switched the default. The spec also overlooked that Temporal's time-skipping test server downloads a binary on first use, which would break "tests need no network". I caught that before implementation. The fix: the binary is baked into the test image, and the suite runs with `network_mode: none`.
 - **LLM adapter parameters.** The implementer sent `temperature=0` together with `reasoning_effort="none"` and JSON mode. The tests passed because they use a fake client. The independent reviewer suspected that the real API would reject this request, but it cited secondary sources. I asked for a check against the official OpenAI and Azure docs only. That check confirmed that `reasoning_effort="none"` is required for tool calling with this model. It also found that the docs do not settle `temperature` or JSON mode for this model, and that one Azure page contradicts itself. The adapter now sends only the parameters the docs clearly allow (`b337881`). It also no longer retries 4xx errors from the provider (`c983b21`). A later live run on OpenAI accepted the parameters the adapter sends (see [Live model run](#live-model-run)); Azure has not been run.
 - **What the fake model could not show.** The fake model passed every path, so none of my runs could show a weak decision. The first live run showed two: a reply to the T-3 outage and a reply to the off-topic T-5. I changed the prompt (`c4eac62`), and after that change both decisions were correct in 2 of 2 runs.
+- **The idempotency memory ended with the process.** An independent review found that the fake Helpdesk kept its idempotency keys in worker memory. It reproduced a second refund: the refund went out, the response was lost, and the retry in a new instance, with the identical key, applied it again. The README only described this as a limitation, and I had left it at that. The key and the result now live in a SQLite file on a volume, so a new instance returns the stored result (`2030e3c`).
 
 **What I take from it:** the agents write correct-looking code fast. The mistakes were almost never in the main flow. They were at the edges: the last retry, logging done too early, a README that promised more than the code did. Those were found only by a check that did not share the author's context: an independent review, QA on a fresh clone, or actually running the stack.
 
@@ -573,19 +579,20 @@ Assumptions made where requirements were open:
 
 Limitations:
 
-- The fake Helpdesk keeps its idempotency keys and results in the memory of one worker
-  process: a worker restart loses them, and `lookup_action_result` then finds nothing.
-- Its `HD-xxxxx` references start again from `HD-00001` after a worker restart.
 - The refund limit is checked per ticket against the invoice amount, not as a sum across
   tickets: two tickets can each get a full refund of the same invoice (each still needs an
   approval).
 - A ticket that ends with `step: failed` shows as `Completed` in Temporal, because the
   workflow returns its status instead of raising.
-- Nothing survives `docker compose down`: the Temporal dev server in Compose keeps no data,
-  and its retention bounds how long duplicate detection works.
+- Temporal's data does not survive `docker compose down`: the dev server in Compose keeps no
+  data, and its retention bounds how long duplicate detection works. The fake Helpdesk's store
+  does survive, on its volume. After a `down` without `-v`, a reused ticket number gets the old
+  result without a new effect, or ends `step: failed` when the action differs, because the
+  Helpdesk rejects the key.
 - Running `scripts/demo.sh` a second time on the same stack gets `duplicate: true` for every
   ticket and then times out waiting for T-2's approval. Start from an empty stack first:
-  `docker compose down -v && docker compose up -d`.
+  `docker compose down -v && docker compose up -d`. The `-v` also removes the fake Helpdesk's
+  store, which would otherwise answer the new run with the old results.
 - If the 24 h timer fires between the API's status query and its signal, the API answers
   `202` (the signal was delivered), but the workflow ignores the approval and the ticket is
   escalated: the refund is not sent. A Workflow Update instead of query plus signal is the
@@ -606,6 +613,6 @@ Next steps:
 - Terraform or Bicep for the Azure design.
 - More runs of the real model, and a first run on Azure.
 - One activity per tool call for finer durability.
-- Persistent idempotency through a real Helpdesk idempotency key.
+- A real Helpdesk that honours the idempotency key, in place of the fake's SQLite file.
 - Authentication on the API, the approval endpoint in particular.
 - Temporal persistence in Compose.
